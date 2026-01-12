@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Workout, Exercise, WorkoutType, WorkoutSet } from '../types';
-import { Save, X, Plus, Trash, Scale, RotateCcw, ChevronUp, ChevronDown, Clock } from 'lucide-react';
+import { Save, X, Plus, Trash, Scale, RotateCcw, ChevronUp, ChevronDown, Clock, Calendar } from 'lucide-react';
 
 interface EditorProps {
   onSave: (workout: Workout) => void;
@@ -34,14 +34,12 @@ const STATIC_TEMPLATES: Record<WorkoutType, string[]> = {
 };
 
 const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, initialWorkout }) => {
-  // Автоматическая установка текущей даты
   const [date, setDate] = useState(() => initialWorkout?.date || new Date().toISOString().split('T')[0]);
   const [type, setType] = useState<WorkoutType>(initialWorkout?.type || 'A');
   const [userWeight, setUserWeight] = useState<string>(initialWorkout?.userWeight?.toString() || '');
   const [exercises, setExercises] = useState<Exercise[]>(initialWorkout?.exercises || []);
   const [newExerciseName, setNewExerciseName] = useState('');
   
-  // Фиксация времени начала для расчета длительности
   const startTimeRef = useRef<number>(Date.now());
 
   const getLastSetsForExercise = (name: string): WorkoutSet[] => {
@@ -105,8 +103,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
 
   const handleSave = () => {
     if (exercises.length === 0) return alert('Добавьте упражнения');
-    
-    // Расчет длительности: текущее время минус время открытия редактора
     const durationMs = Date.now() - startTimeRef.current;
     const durationMin = Math.max(1, Math.round(durationMs / 60000));
 
@@ -121,44 +117,56 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   };
 
   return (
-    <div className="space-y-5 pb-10 animate-in slide-in-from-right-4 duration-300">
-      <div className="bg-zinc-900 rounded-[24px] p-4 border border-zinc-800 shadow-xl space-y-3">
-        {/* Компактный заголовок в одну строку */}
-        <div className="flex items-end gap-3">
-          <div className="flex-1 space-y-1">
-            <label className="text-[9px] font-black text-zinc-500 uppercase ml-1">Дата</label>
+    <div className="space-y-4 pb-10 animate-in slide-in-from-right-4 duration-300">
+      {/* Переработанный компактный заголовок */}
+      <div className="bg-zinc-900/50 backdrop-blur-sm rounded-[24px] p-3 border border-zinc-800 shadow-xl space-y-3">
+        <div className="grid grid-cols-12 gap-2">
+          {/* Блок даты */}
+          <div className="col-span-6 space-y-1">
+            <label className="text-[8px] font-black text-zinc-500 uppercase flex items-center gap-1 ml-1">
+              <Calendar size={10} /> Дата
+            </label>
             <input 
               type="date" 
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2 px-2 text-base font-bold text-zinc-100 outline-none focus:border-indigo-500" 
+              className="w-full bg-zinc-800/80 border border-zinc-700/50 rounded-xl py-2 px-2 text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500 transition-colors" 
               value={date} 
               onChange={(e) => setDate(e.target.value)} 
             />
           </div>
-          <div className="w-24 space-y-1">
-            <label className="text-[9px] font-black text-zinc-500 uppercase text-center block">Тип</label>
-            <div className="flex bg-zinc-800 rounded-lg p-0.5 border border-zinc-700 h-[42px]">
-              <button onClick={() => handleTypeChange('A')} className={`flex-1 rounded-md text-xs font-black transition-all ${type === 'A' ? 'bg-zinc-100 text-indigo-600 shadow-md' : 'text-zinc-500'}`}>A</button>
-              <button onClick={() => handleTypeChange('B')} className={`flex-1 rounded-md text-xs font-black transition-all ${type === 'B' ? 'bg-zinc-100 text-emerald-600 shadow-md' : 'text-zinc-500'}`}>B</button>
+
+          {/* Блок типа тренировки */}
+          <div className="col-span-4 space-y-1">
+            <label className="text-[8px] font-black text-zinc-500 uppercase block text-center">Тип</label>
+            <div className="flex bg-zinc-800/80 rounded-xl p-0.5 border border-zinc-700/50 h-[38px]">
+              <button onClick={() => handleTypeChange('A')} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'A' ? 'bg-white text-indigo-600 shadow-md scale-105' : 'text-zinc-500'}`}>A</button>
+              <button onClick={() => handleTypeChange('B')} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'B' ? 'bg-white text-emerald-600 shadow-md scale-105' : 'text-zinc-500'}`}>B</button>
             </div>
           </div>
-          <button 
-              onClick={() => loadTemplate(type)} 
-              className="mb-1 p-2.5 bg-zinc-800 text-zinc-500 rounded-lg border border-zinc-700 active:text-indigo-400"
-              title="Сбросить список"
-            >
-              <RotateCcw size={16} />
-          </button>
+
+          {/* Кнопка сброса */}
+          <div className="col-span-2 flex flex-col justify-end">
+            <button 
+                onClick={() => loadTemplate(type)} 
+                className="h-[38px] w-full flex items-center justify-center bg-zinc-800/80 text-zinc-500 rounded-xl border border-zinc-700/50 active:text-indigo-400 active:scale-90 transition-all"
+                title="Сбросить список"
+              >
+                <RotateCcw size={14} />
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-1">
-            <label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1 ml-1"><Scale size={10} /> Вес тела (кг)</label>
+        {/* Блок веса тела */}
+        <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">
+              <Scale size={14} />
+            </div>
             <input 
               type="text" 
               inputMode="decimal"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-3 px-4 text-base font-bold text-zinc-100 outline-none focus:border-indigo-500" 
+              className="w-full bg-zinc-800/50 border border-zinc-700/30 rounded-xl py-2 pl-9 pr-4 text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500/50 transition-all" 
               value={userWeight} 
               onChange={(e) => setUserWeight(e.target.value)} 
-              placeholder="0.0"
+              placeholder="Вес тела (кг)"
             />
         </div>
       </div>
@@ -244,7 +252,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
         </button>
       </div>
 
-      {/* Кнопки сохранения в конце списка */}
       <div className="flex gap-3 pt-6 pb-12">
         <button 
           onClick={onCancel} 
