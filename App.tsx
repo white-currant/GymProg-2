@@ -20,7 +20,6 @@ const App: React.FC = () => {
 
   // Состояние для Pull-to-refresh
   const [pullDistance, setPullDistance] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
   const pullStartRef = useRef<number | null>(null);
   const PULL_THRESHOLD = 80;
 
@@ -83,7 +82,6 @@ const App: React.FC = () => {
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       pullStartRef.current = e.touches[0].clientY;
-      setIsPulling(true);
     }
   };
 
@@ -92,9 +90,13 @@ const App: React.FC = () => {
       const currentY = e.touches[0].clientY;
       const diff = currentY - pullStartRef.current;
       if (diff > 0) {
-        // Добавляем эффект сопротивления (резиновости)
-        const resistedDiff = Math.pow(diff, 0.8);
+        // Эффект сопротивления
+        const resistedDiff = Math.min(diff * 0.5, 120);
         setPullDistance(resistedDiff);
+        // Отменяем стандартный скролл если тянем вниз в самом верху
+        if (diff > 10 && e.cancelable) {
+            // e.preventDefault(); // Может вызвать проблемы с прокруткой, используем осторожно
+        }
       }
     }
   };
@@ -104,7 +106,6 @@ const App: React.FC = () => {
       fetchFromCloud();
     }
     setPullDistance(0);
-    setIsPulling(false);
     pullStartRef.current = null;
   };
 
@@ -159,33 +160,37 @@ const App: React.FC = () => {
     >
       {/* Визуальный индикатор Pull-to-refresh */}
       <div 
-        className="absolute top-0 left-0 right-0 flex justify-center items-center pointer-events-none z-50 overflow-hidden transition-all duration-100"
-        style={{ height: `${pullDistance}px`, opacity: Math.min(pullDistance / PULL_THRESHOLD, 1) }}
+        className="absolute top-0 left-0 right-0 flex justify-center items-center pointer-events-none z-50 overflow-hidden"
+        style={{ height: `${pullDistance}px`, transition: pullDistance === 0 ? 'height 0.3s ease-out' : 'none' }}
       >
-        <div className={`p-2 bg-indigo-600 rounded-full shadow-lg transform transition-transform ${pullDistance > PULL_THRESHOLD ? 'rotate-180 scale-110' : ''}`}>
+        <div 
+          className="p-2.5 bg-indigo-600 text-white rounded-full shadow-2xl transition-all"
+          style={{ 
+            opacity: Math.min(pullDistance / PULL_THRESHOLD, 1),
+            transform: `scale(${Math.min(pullDistance / PULL_THRESHOLD, 1)}) rotate(${pullDistance * 2}deg)` 
+          }}
+        >
           <RefreshCw size={20} className={syncStatus === 'loading' ? 'animate-spin' : ''} />
         </div>
       </div>
 
       <header className="bg-zinc-900/80 backdrop-blur-xl px-6 pt-8 pb-4 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-30">
-        <button onClick={() => setActiveTab('settings')} className={`transition-colors ${activeTab === 'settings' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
+        <button onClick={() => setActiveTab('settings')} className={`transition-colors ${activeTab === 'settings' ? 'text-indigo-400' : 'text-zinc-500'}`}>
           <SettingsIcon size={20} />
         </button>
         
-        <div className="text-center relative">
+        <div className="text-center">
           <h1 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-2 justify-center">
             GymProg
             {syncStatus === 'loading' && <RefreshCw size={12} className="text-indigo-400 animate-spin" />}
-            {syncStatus === 'success' && <Cloud size={12} className="text-emerald-400" />}
-            {syncStatus === 'error' && <CloudOff size={12} className="text-rose-400" />}
           </h1>
           <p className="text-[8px] text-zinc-500 uppercase font-black tracking-[0.3em]">Strong Tracker</p>
         </div>
 
-        {/* Кнопка обновления всегда справа сверху */}
+        {/* Кнопка обновления на всех страницах */}
         <button 
           onClick={() => fetchFromCloud()} 
-          className={`p-2 rounded-full transition-all active:scale-90 ${syncStatus === 'loading' ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}
+          className={`p-2 rounded-xl transition-all active:scale-90 ${syncStatus === 'loading' ? 'bg-indigo-600/20 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
         >
           <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin' : ''} />
         </button>
@@ -201,7 +206,7 @@ const App: React.FC = () => {
         <div className="relative -top-10">
            <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-[0_8px_30px_rgb(79,70,229,0.3)] active:scale-95 transition-all"><Plus size={32} className="-rotate-45" /></button>
         </div>
-        <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics'} icon={<BarChart2 size={22} />} label="Графики" />
+        <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
         <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={22} />} label="Настр" />
       </nav>
     </div>
