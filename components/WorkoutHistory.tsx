@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Workout } from '../types.ts';
+import { Workout } from '../types';
 import { Trash2, Calendar, Search, Filter, Edit2, Copy, Check, AlertCircle } from 'lucide-react';
 
 interface HistoryProps {
