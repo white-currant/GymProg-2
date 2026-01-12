@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Workout, Exercise, WorkoutType, Set } from '../types';
+import { Workout, Exercise, WorkoutType, WorkoutSet } from '../types';
 import { Save, X, Plus, Trash, Scale, RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface EditorProps {
@@ -53,7 +53,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   }, [workouts]);
 
   // Функция поиска последних весов для конкретного названия упражнения
-  const getLastSetsForExercise = (name: string): Set[] => {
+  const getLastSetsForExercise = (name: string): WorkoutSet[] => {
     const cleanName = name.trim();
     // По просьбе пользователя: для жима горизонтально минимум 4 подхода
     const minSets = cleanName === 'Жим в блоке горизонтально' ? 4 : 1;
@@ -162,7 +162,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
             <input 
               type="text" 
               inputMode="decimal"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500" 
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3.5 px-4 text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500 transition-all" 
               value={userWeight} 
               onChange={(e) => setUserWeight(e.target.value)} 
               placeholder="0.0"
@@ -255,9 +255,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
             value={newExerciseName} 
             onChange={(e) => setNewExerciseName(e.target.value)} 
           />
-          <datalist id="exercise-suggestions">
-            {allExerciseNames.map(name => <option key={name} value={name} />)}
-          </datalist>
         </div>
         <button 
           onClick={() => { 
@@ -277,7 +274,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
         <button onClick={handleSave} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-[0_8px_30px_rgb(79,70,229,0.4)] flex items-center justify-center gap-2 active:scale-95 transition-all"><Save size={18} /> Сохранить лог</button>
       </div>
       
-      {/* Скрытый datalist для основного списка подсказок */}
       <datalist id="exercise-suggestions">
         {allExerciseNames.map(name => <option key={name} value={name} />)}
       </datalist>
