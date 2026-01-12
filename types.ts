@@ -1,5 +1,5 @@
 
-export type Set = {
+export type WorkoutSet = {
   reps: number;
   weight: number;
 };
@@ -7,7 +7,7 @@ export type Set = {
 export type Exercise = {
   id: string;
   name: string;
-  sets: Set[];
+  sets: WorkoutSet[];
 };
 
 export type WorkoutType = 'A' | 'B';
