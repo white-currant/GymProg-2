@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Workout } from '../types';
-import { Trash2, Calendar, Search, Filter, Edit2, Copy, Check, AlertCircle } from 'lucide-react';
+import { Trash2, Calendar, Search, Filter, Edit2, Copy, Check, AlertCircle, Clock } from 'lucide-react';
 
 interface HistoryProps {
   workouts: Workout[];
@@ -28,7 +28,7 @@ const WorkoutHistory: React.FC<HistoryProps> = ({ workouts, onDelete, onEdit }) 
 
   const copyToClipboard = (workout: Workout) => {
     const dateStr = new Date(workout.date).toLocaleDateString('ru-RU');
-    let text = `${dateStr} - Тип ${workout.type}\n`;
+    let text = `${dateStr} - Тип ${workout.type}${workout.duration ? ` (${workout.duration} мин)` : ''}\n`;
     workout.exercises.forEach(ex => {
       text += `${ex.name} ${ex.sets.map(s => `${s.reps}х${s.weight}`).join(', ')}\n`;
     });
@@ -45,7 +45,7 @@ const WorkoutHistory: React.FC<HistoryProps> = ({ workouts, onDelete, onEdit }) 
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
           <input 
             type="text"
-            placeholder="Поиск..."
+            placeholder="Поиск по упражнению или дате..."
             className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-xl"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -63,10 +63,21 @@ const WorkoutHistory: React.FC<HistoryProps> = ({ workouts, onDelete, onEdit }) 
                 </div>
                 <div>
                   <h4 className="font-bold text-zinc-100 text-sm">День {workout.type}</h4>
-                  <p className="text-[10px] text-zinc-500 flex items-center gap-1 font-semibold uppercase">
-                    <Calendar size={10} />
-                    {new Date(workout.date).toLocaleDateString('ru-RU')}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[9px] text-zinc-500 flex items-center gap-1 font-black uppercase tracking-wider">
+                      <Calendar size={10} />
+                      {new Date(workout.date).toLocaleDateString('ru-RU')}
+                    </p>
+                    {workout.duration && (
+                      <span className="w-1 h-1 bg-zinc-700 rounded-full"></span>
+                    )}
+                    {workout.duration && (
+                      <p className="text-[9px] text-indigo-400 flex items-center gap-1 font-black uppercase tracking-wider">
+                        <Clock size={10} />
+                        {workout.duration} мин
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -89,13 +100,13 @@ const WorkoutHistory: React.FC<HistoryProps> = ({ workouts, onDelete, onEdit }) 
             <div className="p-4 pt-3 space-y-4">
               {workout.exercises.map((ex, idx) => (
                 <div key={idx}>
-                  <h5 className="text-[13px] font-bold text-zinc-300 mb-1.5 flex items-center gap-2">
+                  <h5 className="text-[12px] font-bold text-zinc-300 mb-1.5 flex items-center gap-2">
                     <span className="w-1 h-3 bg-zinc-700 rounded-full"></span>
                     {ex.name}
                   </h5>
-                  <div className="flex flex-wrap gap-1.5 pl-3">
+                  <div className="flex flex-wrap gap-1 pl-3">
                     {ex.sets.map((set, sIdx) => (
-                      <div key={sIdx} className="bg-zinc-800 border border-zinc-700 px-2 py-1.5 rounded-xl text-[11px] font-bold text-zinc-400 flex items-center gap-1">
+                      <div key={sIdx} className="bg-zinc-800 border border-zinc-700 px-2 py-1.5 rounded-lg text-[10px] font-bold text-zinc-400 flex items-center gap-1">
                         <span className="text-zinc-100">{set.reps}</span>
                         <span className="text-zinc-600">х</span>
                         <span className="text-indigo-400">{set.weight}кг</span>
@@ -107,6 +118,12 @@ const WorkoutHistory: React.FC<HistoryProps> = ({ workouts, onDelete, onEdit }) 
             </div>
           </div>
         ))}
+        {filteredWorkouts.length === 0 && (
+          <div className="py-20 text-center space-y-3">
+            <div className="text-zinc-800 inline-block p-4 bg-zinc-900 rounded-full"><Search size={32} /></div>
+            <p className="text-zinc-500 font-bold">Ничего не найдено</p>
+          </div>
+        )}
       </div>
     </div>
   );
