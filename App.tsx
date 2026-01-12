@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Workout, Tab } from './types';
 import { INITIAL_DATA } from './initialData';
-import { Home, History, BarChart2, Plus, ArrowLeft, Settings as SettingsIcon, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { Home, History, BarChart2, Plus, ArrowLeft, Settings as SettingsIcon, Cloud, CloudOff, RefreshCw, ChevronDown } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import WorkoutHistory from './components/WorkoutHistory';
 import AnalyticsView from './components/AnalyticsView';
@@ -17,6 +17,12 @@ const App: React.FC = () => {
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  // Состояние для Pull-to-refresh
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const pullStartRef = useRef<number | null>(null);
+  const PULL_THRESHOLD = 80;
 
   const syncToCloud = useCallback(async (data: Workout[]) => {
     setSyncStatus('loading');
@@ -35,6 +41,7 @@ const App: React.FC = () => {
   }, []);
 
   const fetchFromCloud = useCallback(async () => {
+    if (syncStatus === 'loading') return;
     setSyncStatus('loading');
     try {
       const response = await fetch(CLOUD_SCRIPT_URL);
@@ -48,7 +55,7 @@ const App: React.FC = () => {
     } catch (e) {
       setSyncStatus('error');
     }
-  }, []);
+  }, [syncStatus]);
 
   useEffect(() => {
     const stored = localStorage.getItem('gym-workouts');
@@ -64,13 +71,42 @@ const App: React.FC = () => {
     }
     setIsLoaded(true);
     fetchFromCloud();
-  }, [fetchFromCloud]);
+  }, []);
 
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem('gym-workouts', JSON.stringify(workouts));
     }
   }, [workouts, isLoaded]);
+
+  // Обработчики жестов Pull-to-refresh
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      pullStartRef.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (pullStartRef.current !== null) {
+      const currentY = e.touches[0].clientY;
+      const diff = currentY - pullStartRef.current;
+      if (diff > 0) {
+        // Добавляем эффект сопротивления (резиновости)
+        const resistedDiff = Math.pow(diff, 0.8);
+        setPullDistance(resistedDiff);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullDistance > PULL_THRESHOLD) {
+      fetchFromCloud();
+    }
+    setPullDistance(0);
+    setIsPulling(false);
+    pullStartRef.current = null;
+  };
 
   const addWorkout = (workout: Workout) => {
     let newWorkouts: Workout[];
@@ -115,7 +151,22 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col pb-24 selection:bg-indigo-900/40">
+    <div 
+      className="max-w-md mx-auto min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col pb-24 selection:bg-indigo-900/40 relative"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Визуальный индикатор Pull-to-refresh */}
+      <div 
+        className="absolute top-0 left-0 right-0 flex justify-center items-center pointer-events-none z-50 overflow-hidden transition-all duration-100"
+        style={{ height: `${pullDistance}px`, opacity: Math.min(pullDistance / PULL_THRESHOLD, 1) }}
+      >
+        <div className={`p-2 bg-indigo-600 rounded-full shadow-lg transform transition-transform ${pullDistance > PULL_THRESHOLD ? 'rotate-180 scale-110' : ''}`}>
+          <RefreshCw size={20} className={syncStatus === 'loading' ? 'animate-spin' : ''} />
+        </div>
+      </div>
+
       <header className="bg-zinc-900/80 backdrop-blur-xl px-6 pt-8 pb-4 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-30">
         <button onClick={() => setActiveTab('settings')} className={`transition-colors ${activeTab === 'settings' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
           <SettingsIcon size={20} />
@@ -131,21 +182,18 @@ const App: React.FC = () => {
           <p className="text-[8px] text-zinc-500 uppercase font-black tracking-[0.3em]">Strong Tracker</p>
         </div>
 
-        {activeTab !== 'dashboard' && activeTab !== 'add' ? (
-           <button onClick={() => setActiveTab('dashboard')} className="p-2 bg-zinc-800 text-zinc-400 rounded-full hover:bg-zinc-700 transition-colors">
-             <ArrowLeft size={18} />
-           </button>
-        ) : (
-          <button 
-            onClick={() => fetchFromCloud()} 
-            className={`p-2 rounded-full transition-all ${syncStatus === 'loading' ? 'bg-indigo-500/20 text-indigo-400 rotate-180' : 'text-zinc-600 hover:text-zinc-400'}`}
-          >
-            <RefreshCw size={16} />
-          </button>
-        )}
+        {/* Кнопка обновления всегда справа сверху */}
+        <button 
+          onClick={() => fetchFromCloud()} 
+          className={`p-2 rounded-full transition-all active:scale-90 ${syncStatus === 'loading' ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}
+        >
+          <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin' : ''} />
+        </button>
       </header>
 
-      <main className="flex-1 px-4 py-6">{renderContent()}</main>
+      <main className="flex-1 px-4 py-6">
+        {renderContent()}
+      </main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border-t border-zinc-800 px-6 py-4 flex justify-between items-center z-40">
         <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Home size={22} />} label="Главная" />
@@ -153,7 +201,7 @@ const App: React.FC = () => {
         <div className="relative -top-10">
            <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-[0_8px_30px_rgb(79,70,229,0.3)] active:scale-95 transition-all"><Plus size={32} className="-rotate-45" /></button>
         </div>
-        <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
+        <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics'} icon={<BarChart2 size={22} />} label="Графики" />
         <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={22} />} label="Настр" />
       </nav>
     </div>
