@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Workout, Tab } from './types.ts';
-import { INITIAL_DATA } from './initialData.ts';
+import { Workout, Tab } from './types';
+import { INITIAL_DATA } from './initialData';
 import { Home, History, BarChart2, Plus, ArrowLeft, Settings as SettingsIcon, Cloud, CloudOff, RefreshCw } from 'lucide-react';
-import Dashboard from './components/Dashboard.tsx';
-import WorkoutHistory from './components/WorkoutHistory.tsx';
-import AnalyticsView from './components/AnalyticsView.tsx';
-import WorkoutEditor from './components/WorkoutEditor.tsx';
-import SettingsView from './components/SettingsView.tsx';
+import Dashboard from './components/Dashboard';
+import WorkoutHistory from './components/WorkoutHistory';
+import AnalyticsView from './components/AnalyticsView';
+import WorkoutEditor from './components/WorkoutEditor';
+import SettingsView from './components/SettingsView';
 
 const CLOUD_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwVVNjgGy_qyHofaYkpn99jsaN5x453kdQsFaSU7mWgZn4O3Lo0q9H76lpI7o7LSDjieg/exec';
 
