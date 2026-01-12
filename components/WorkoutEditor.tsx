@@ -63,7 +63,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
         return Array(setsCount).fill(null).map(() => ({ reps: 0, weight: 0 }));
       }
     }
-    
     return Array(minSets).fill(null).map(() => ({ reps: 0, weight: 0 }));
   };
 
@@ -121,39 +120,46 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   };
 
   return (
-    <div className="space-y-6 pb-40 animate-in slide-in-from-right-4 duration-300">
-      <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 shadow-xl space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-sm font-bold text-zinc-400">{initialWorkout ? 'Редактирование' : 'Новый лог'}</h2>
+    <div className="space-y-6 pb-44 animate-in slide-in-from-right-4 duration-300">
+      <div className="bg-zinc-900 rounded-3xl p-5 border border-zinc-800 shadow-xl space-y-4">
+        <div className="flex justify-between items-center px-1">
+          <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{initialWorkout ? 'Редактирование' : 'Новый лог'}</h2>
           {!initialWorkout && (
             <button 
               onClick={() => loadTemplate(type)} 
               className="text-[10px] font-black text-indigo-400 uppercase flex items-center gap-1 active:opacity-50"
             >
-              <RotateCcw size={12} /> Сбросить список
+              <RotateCcw size={12} /> Сброс
             </button>
           )}
         </div>
         
-        <div className="flex gap-4">
-          <div className="flex-1 space-y-1">
-            <label className="text-[10px] font-black text-zinc-500 uppercase">Дата</label>
-            <input type="date" className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-base font-bold text-zinc-100 outline-none focus:border-indigo-500" value={date} onChange={(e) => setDate(e.target.value)} />
+        {/* Сетка заголовка: 1fr для даты и фиксированные 110px для типа */}
+        <div className="grid grid-cols-[1fr_110px] gap-3">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-zinc-500 uppercase ml-1">Дата</label>
+            <input 
+              type="date" 
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-3 text-base font-bold text-zinc-100 outline-none focus:border-indigo-500 transition-colors" 
+              value={date} 
+              onChange={(e) => setDate(e.target.value)} 
+            />
           </div>
-          <div className="w-1/3 space-y-1">
+          <div className="space-y-1">
             <label className="text-[10px] font-black text-zinc-500 uppercase text-center block">Тип</label>
-            <div className="flex bg-zinc-800 rounded-xl p-1 border border-zinc-700">
-              <button onClick={() => handleTypeChange('A')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${type === 'A' ? 'bg-zinc-100 text-indigo-600 shadow-md' : 'text-zinc-500'}`}>A</button>
-              <button onClick={() => handleTypeChange('B')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${type === 'B' ? 'bg-zinc-100 text-emerald-600 shadow-md' : 'text-zinc-500'}`}>B</button>
+            <div className="flex bg-zinc-800 rounded-xl p-1 border border-zinc-700 h-[50px]">
+              <button onClick={() => handleTypeChange('A')} className={`flex-1 rounded-lg text-sm font-black transition-all ${type === 'A' ? 'bg-white text-indigo-600 shadow-lg' : 'text-zinc-500'}`}>A</button>
+              <button onClick={() => handleTypeChange('B')} className={`flex-1 rounded-lg text-sm font-black transition-all ${type === 'B' ? 'bg-white text-emerald-600 shadow-lg' : 'text-zinc-500'}`}>B</button>
             </div>
           </div>
         </div>
+
         <div className="space-y-1">
-            <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-1"><Scale size={12} /> Вес тела (кг)</label>
+            <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-1 ml-1"><Scale size={12} /> Вес тела (кг)</label>
             <input 
               type="text" 
               inputMode="decimal"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3.5 px-4 text-base font-bold text-zinc-100 outline-none focus:border-indigo-500" 
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-4 px-4 text-base font-bold text-zinc-100 outline-none focus:border-indigo-500 transition-colors" 
               value={userWeight} 
               onChange={(e) => setUserWeight(e.target.value)} 
               placeholder="0.0"
@@ -175,21 +181,21 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
               </div>
               <div className="flex items-center gap-1">
                 <div className="flex flex-col gap-0.5">
-                  <button disabled={index === 0} onClick={() => moveExercise(index, 'up')} className={`p-1 rounded ${index === 0 ? 'text-zinc-800' : 'text-zinc-500'}`}><ChevronUp size={16} /></button>
-                  <button disabled={index === exercises.length - 1} onClick={() => moveExercise(index, 'down')} className={`p-1 rounded ${index === exercises.length - 1 ? 'text-zinc-800' : 'text-zinc-500'}`}><ChevronDown size={16} /></button>
+                  <button disabled={index === 0} onClick={() => moveExercise(index, 'up')} className={`p-1 rounded ${index === 0 ? 'text-zinc-800' : 'text-zinc-500'}`}><ChevronUp size={18} /></button>
+                  <button disabled={index === exercises.length - 1} onClick={() => moveExercise(index, 'down')} className={`p-1 rounded ${index === exercises.length - 1 ? 'text-zinc-800' : 'text-zinc-500'}`}><ChevronDown size={18} /></button>
                 </div>
-                <button onClick={() => setExercises(exercises.filter(ex => ex.id !== exercise.id))} className="p-2 text-rose-500/50 active:text-rose-500"><Trash size={18} /></button>
+                <button onClick={() => setExercises(exercises.filter(ex => ex.id !== exercise.id))} className="p-2 text-rose-500/40 active:text-rose-500 transition-colors"><Trash size={20} /></button>
               </div>
             </div>
             
             <div className="grid grid-cols-1 gap-3">
               {exercise.sets.map((set, sIdx) => (
                 <div key={sIdx} className="flex items-center gap-2">
-                  <div className="w-8 h-8 shrink-0 rounded-full bg-zinc-800 text-[11px] flex items-center justify-center font-bold text-zinc-500">{sIdx + 1}</div>
+                  <div className="w-8 h-8 shrink-0 rounded-full bg-zinc-800 text-[11px] flex items-center justify-center font-black text-zinc-500 border border-zinc-700">{sIdx + 1}</div>
                   <div className="flex-1 grid grid-cols-2 gap-2">
                     <input 
                       type="number" 
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 px-3 text-base font-bold text-zinc-100 outline-none focus:bg-zinc-700/50"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-3 text-base font-bold text-zinc-100 outline-none focus:bg-zinc-700/50"
                       value={set.reps || ''} placeholder="Повт"
                       onChange={(e) => setExercises(exercises.map(ex => {
                         if (ex.id === exercise.id) {
@@ -202,7 +208,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
                     />
                     <input 
                       type="text" inputMode="decimal"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 px-3 text-base font-bold text-zinc-100 outline-none focus:bg-zinc-700/50"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-3 text-base font-bold text-zinc-100 outline-none focus:bg-zinc-700/50"
                       value={set.weight || ''} placeholder="КГ"
                       onChange={(e) => setExercises(exercises.map(ex => {
                         if (ex.id === exercise.id) {
@@ -214,10 +220,10 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
                       }))}
                     />
                   </div>
-                  <button onClick={() => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: ex.sets.filter((_, i) => i !== sIdx)} : ex))} className="p-2 text-zinc-700 active:text-zinc-400"><X size={16} /></button>
+                  <button onClick={() => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: ex.sets.filter((_, i) => i !== sIdx)} : ex))} className="p-2 text-zinc-700 active:text-zinc-400"><X size={18} /></button>
                 </div>
               ))}
-              <button onClick={() => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: [...ex.sets, {reps: 0, weight: 0}]} : ex))} className="w-full py-3 border border-dashed border-zinc-800 rounded-xl text-xs font-bold text-zinc-600 uppercase active:bg-zinc-800">+ Подход</button>
+              <button onClick={() => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: [...ex.sets, {reps: 0, weight: 0}]} : ex))} className="w-full py-3.5 border border-dashed border-zinc-800 rounded-xl text-xs font-black text-zinc-600 uppercase active:bg-zinc-800 active:text-zinc-400 transition-all">+ Добавить подход</button>
             </div>
           </div>
         ))}
@@ -238,16 +244,16 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
               setNewExerciseName(''); 
             } 
           }} 
-          className="w-full py-4 bg-indigo-600/10 text-indigo-400 rounded-xl text-xs font-black uppercase tracking-widest active:bg-indigo-600/20 border border-indigo-500/20"
+          className="w-full py-4 bg-indigo-600/10 text-indigo-400 rounded-xl text-xs font-black uppercase tracking-widest active:bg-indigo-600/20 border border-indigo-500/20 transition-all"
         >
-          <Plus size={14} className="inline mr-2" /> Добавить в список
+          <Plus size={14} className="inline mr-2" /> Добавить упражнение
         </button>
       </div>
 
-      <div className="fixed bottom-[90px] left-0 right-0 px-4 z-20 pointer-events-none">
+      <div className="fixed bottom-[90px] left-0 right-0 px-4 z-20 pointer-events-none pb-2">
         <div className="max-w-md mx-auto flex gap-3 pointer-events-auto">
-          <button onClick={onCancel} className="flex-1 py-4 bg-zinc-900 text-zinc-400 rounded-2xl font-bold shadow-2xl border border-zinc-800 active:scale-95 transition-all">Отмена</button>
-          <button onClick={handleSave} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"><Save size={18} /> Сохранить лог</button>
+          <button onClick={onCancel} className="flex-1 py-4 bg-zinc-900 text-zinc-400 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl border border-zinc-800 active:scale-95 transition-all">Отмена</button>
+          <button onClick={handleSave} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"><Save size={18} /> Сохранить</button>
         </div>
       </div>
     </div>
