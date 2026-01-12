@@ -1,0 +1,5 @@
+{
+  "name": "GymProgression - Minimalist Fitness Tracker",
+  "description": "A minimalist workout tracker for a two-day split with detailed history, progress analytics, and automated set recording.",
+  "requestFramePermissions": []
+}
