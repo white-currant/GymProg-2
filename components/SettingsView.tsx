@@ -6,7 +6,7 @@ import { Workout, UserProfile } from '../types';
 interface SettingsProps {
   workouts: Workout[];
   onImport: (workouts: Workout[]) => void;
-  onFetch: () => void;
+  onFetch: () => void | Promise<void>;
   onLogout: () => void;
   user: UserProfile | null;
 }
@@ -67,7 +67,7 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
 
   const handleSync = async (type: 'up' | 'down') => {
     if (type === 'down') {
-        onFetch();
+        await onFetch();
         return;
     }
     if (!user) return;
