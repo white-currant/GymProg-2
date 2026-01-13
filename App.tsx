@@ -23,19 +23,18 @@ const App: React.FC = () => {
   const pullStartRef = useRef<number | null>(null);
   const PULL_THRESHOLD = 80;
 
-  // Функция для очистки и сортировки данных (удаляет дубли и ставит новые вверх)
+  // Функция для дедупликации и строгой сортировки
   const processWorkouts = (data: Workout[]): Workout[] => {
     if (!Array.isArray(data)) return [];
     
-    // 1. Удаляем дубликаты по ID (оставляем первое вхождение)
     const uniqueMap = new Map<string, Workout>();
+    // Идем с конца в начало, чтобы более свежие данные (если есть дубли по ID) перезаписывали старые
     data.forEach(w => {
-      if (w && w.id && !uniqueMap.has(w.id)) {
+      if (w && w.id) {
         uniqueMap.set(w.id, w);
       }
     });
 
-    // 2. Сортируем по дате (от новых к старым)
     return Array.from(uniqueMap.values()).sort((a, b) => {
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
@@ -65,9 +64,12 @@ const App: React.FC = () => {
       const response = await fetch(CLOUD_SCRIPT_URL);
       const data = await response.json();
       if (Array.isArray(data)) {
-        const cleanData = processWorkouts(data);
-        setWorkouts(cleanData);
-        localStorage.setItem('gym-workouts', JSON.stringify(cleanData));
+        setWorkouts(prev => {
+          // УМНОЕ СЛИЯНИЕ: объединяем текущие локальные данные и данные из облака
+          const merged = processWorkouts([...prev, ...data]);
+          localStorage.setItem('gym-workouts', JSON.stringify(merged));
+          return merged;
+        });
         setSyncStatus('success');
         setTimeout(() => setSyncStatus('idle'), 3000);
       }
@@ -90,9 +92,9 @@ const App: React.FC = () => {
       }
     }
     
-    const cleanInitial = processWorkouts(initialWorkouts);
-    setWorkouts(cleanInitial);
+    setWorkouts(processWorkouts(initialWorkouts));
     setIsLoaded(true);
+    // При загрузке приложения подтягиваем данные, но не затираем текущие
     fetchFromCloud();
   }, []);
 
@@ -102,28 +104,20 @@ const App: React.FC = () => {
     }
   }, [workouts, isLoaded]);
 
-  // Обработчики жестов Pull-to-refresh
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY === 0) {
-      pullStartRef.current = e.touches[0].clientY;
-    }
+    if (window.scrollY === 0) pullStartRef.current = e.touches[0].clientY;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (pullStartRef.current !== null) {
       const currentY = e.touches[0].clientY;
       const diff = currentY - pullStartRef.current;
-      if (diff > 0) {
-        const resistedDiff = Math.min(diff * 0.5, 120);
-        setPullDistance(resistedDiff);
-      }
+      if (diff > 0) setPullDistance(Math.min(diff * 0.5, 120));
     }
   };
 
   const handleTouchEnd = () => {
-    if (pullDistance > PULL_THRESHOLD) {
-      fetchFromCloud();
-    }
+    if (pullDistance > PULL_THRESHOLD) fetchFromCloud();
     setPullDistance(0);
     pullStartRef.current = null;
   };
@@ -145,6 +139,7 @@ const App: React.FC = () => {
   };
 
   const deleteWorkout = (id: string) => {
+    if (!confirm('Удалить эту тренировку?')) return;
     setWorkouts(prev => {
       const newWorkouts = prev.filter(w => w.id !== id);
       const processed = processWorkouts(newWorkouts);
@@ -171,7 +166,7 @@ const App: React.FC = () => {
       case 'history': return <WorkoutHistory workouts={workouts} onDelete={deleteWorkout} onEdit={startEditWorkout} />;
       case 'analytics': return <AnalyticsView workouts={workouts} />;
       case 'add': return <WorkoutEditor onSave={addWorkout} onCancel={handleCancelAdd} workouts={workouts} initialWorkout={editingWorkout || undefined} />;
-      case 'settings': return <SettingsView workouts={workouts} onImport={(data) => setWorkouts(processWorkouts(data))} />;
+      case 'settings': return <SettingsView workouts={workouts} onImport={(data) => setWorkouts(processWorkouts(data))} onFetch={fetchFromCloud} />;
       default: return <Dashboard workouts={workouts} onAddClick={() => { setEditingWorkout(null); setActiveTab('add'); }} />;
     }
   };
@@ -183,17 +178,13 @@ const App: React.FC = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Визуальный индикатор Pull-to-refresh */}
       <div 
         className="absolute top-0 left-0 right-0 flex justify-center items-center pointer-events-none z-50 overflow-hidden"
         style={{ height: `${pullDistance}px`, transition: pullDistance === 0 ? 'height 0.3s ease-out' : 'none' }}
       >
         <div 
           className="p-2.5 bg-indigo-600 text-white rounded-full shadow-2xl transition-all"
-          style={{ 
-            opacity: Math.min(pullDistance / PULL_THRESHOLD, 1),
-            transform: `scale(${Math.min(pullDistance / PULL_THRESHOLD, 1)}) rotate(${pullDistance * 2}deg)` 
-          }}
+          style={{ opacity: Math.min(pullDistance / PULL_THRESHOLD, 1), transform: `scale(${Math.min(pullDistance / PULL_THRESHOLD, 1)}) rotate(${pullDistance * 2}deg)` }}
         >
           <RefreshCw size={20} className={syncStatus === 'loading' ? 'animate-spin' : ''} />
         </div>
@@ -203,27 +194,16 @@ const App: React.FC = () => {
         <button onClick={() => setActiveTab('settings')} className={`transition-colors ${activeTab === 'settings' ? 'text-indigo-400' : 'text-zinc-500'}`}>
           <SettingsIcon size={20} />
         </button>
-        
         <div className="text-center">
-          <h1 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-2 justify-center">
-            GymProg
-            {syncStatus === 'loading' && <RefreshCw size={12} className="text-indigo-400 animate-spin" />}
-          </h1>
+          <h1 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-2 justify-center">GymProg</h1>
           <p className="text-[8px] text-zinc-500 uppercase font-black tracking-[0.3em]">Strong Tracker</p>
         </div>
-
-        {/* Кнопка обновления на всех страницах */}
-        <button 
-          onClick={() => fetchFromCloud()} 
-          className={`p-2 rounded-xl transition-all active:scale-90 ${syncStatus === 'loading' ? 'bg-indigo-600/20 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-        >
+        <button onClick={() => fetchFromCloud()} className={`p-2 rounded-xl transition-all active:scale-90 ${syncStatus === 'loading' ? 'bg-indigo-600/20 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
           <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin' : ''} />
         </button>
       </header>
 
-      <main className="flex-1 px-4 py-6">
-        {renderContent()}
-      </main>
+      <main className="flex-1 px-4 py-6">{renderContent()}</main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border-t border-zinc-800 px-6 py-4 flex justify-between items-center z-40">
         <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Home size={22} />} label="Главная" />
