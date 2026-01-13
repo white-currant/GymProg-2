@@ -27,6 +27,7 @@ interface SettingsProps {
 }
 
 const GOOGLE_CLIENT_ID = "493846459902-fi9ma2l18sciq5lr3t8bh8fm81e63bao.apps.googleusercontent.com";
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRN6M--Fz-gTndleVhN9KKeD_l07ctwQSknsaFik0gaRo7tpxt0KlR4r-WtTqcDP4Wmw/exec';
 
 const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, onLogout, onLogin, onMigrate, user }) => {
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'loading', msg: string } | null>(null);
@@ -82,7 +83,6 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
       if (type === 'down') {
         await onFetch();
       } else {
-        const SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRN6M--Fz-gTndleVhN9KKeD_l07ctwQSknsaFik0gaRo7tpxt0KlR4r-WtTqcDP4Wmw/exec';
         await fetch(SYNC_URL, {
           method: 'POST',
           mode: 'no-cors',
@@ -94,6 +94,7 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
       setTimeout(() => setStatus(null), 3000);
     } catch (e) {
       setStatus({ type: 'error', msg: 'Ошибка связи' });
+      setTimeout(() => setStatus(null), 3000);
     }
   };
 
@@ -179,7 +180,7 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
         <div className="grid grid-cols-2 gap-3">
           <button 
             onClick={() => handleSync('up')} 
-            disabled={isGuest}
+            disabled={isGuest || (status?.type === 'loading')}
             className="flex flex-col items-center gap-2 py-5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-2xl border border-zinc-700 transition-all active:scale-95 disabled:opacity-20"
           >
             <CloudUpload size={22} className="text-indigo-400" />
@@ -187,7 +188,7 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
           </button>
           <button 
             onClick={() => handleSync('down')} 
-            disabled={isGuest}
+            disabled={isGuest || (status?.type === 'loading')}
             className="flex flex-col items-center gap-2 py-5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-2xl border border-zinc-700 transition-all active:scale-95 disabled:opacity-20"
           >
             <CloudDownload size={22} className="text-emerald-400" />
