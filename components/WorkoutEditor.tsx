@@ -252,3 +252,4 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
 }
 
 export default WorkoutEditor;
+
