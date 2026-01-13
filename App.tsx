@@ -11,9 +11,10 @@ import AuthView from './components/AuthView';
 
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRN6M--Fz-gTndleVhN9KKeD_l07ctwQSknsaFik0gaRo7tpxt0KlR4r-WtTqcDP4Wmw/exec';
 
-// Утилита для вибрации
+// Утилита для вибрации (Navigator API)
 export const haptic = (pattern: number | number[]) => {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    // В большинстве мобильных браузеров это работает только на Android
     navigator.vibrate(pattern);
   }
 };
@@ -43,7 +44,7 @@ const App: React.FC = () => {
     if (!user || user.email === 'guest@local.app') return;
     
     setSyncStatus('loading');
-    haptic(15);
+    haptic(10);
     try {
       await fetch(SYNC_URL, {
         method: 'POST',
@@ -52,7 +53,7 @@ const App: React.FC = () => {
         body: JSON.stringify({ email: user.email, workouts: data })
       });
       setSyncStatus('success');
-      haptic([20, 50, 20]);
+      haptic([30, 50, 30]); // Двойная вибрация при успехе
     } catch (e) {
       console.error("Sync error:", e);
       setSyncStatus('error');
@@ -66,7 +67,7 @@ const App: React.FC = () => {
     if (!emailToFetch || emailToFetch === 'guest@local.app') return;
     
     setSyncStatus('loading');
-    haptic(15);
+    haptic(10);
     try {
       const fullUrl = new URL(SYNC_URL);
       fullUrl.searchParams.append('email', emailToFetch);
@@ -82,7 +83,7 @@ const App: React.FC = () => {
         setWorkouts(merged);
         if (storageKey) localStorage.setItem(storageKey, JSON.stringify(merged));
         setSyncStatus('success');
-        haptic([20, 50, 20]);
+        haptic([30, 50, 30]);
       }
     } catch (e) {
       console.error("Fetch error:", e);
@@ -109,12 +110,12 @@ const App: React.FC = () => {
   }, [workouts, isLoaded, storageKey]);
 
   const handleTabChange = (tab: Tab) => {
-    haptic(10);
+    haptic(5); // Короткая отдача при смене таба
     setActiveTab(tab);
   };
 
   const handleDeleteWorkout = (id: string) => {
-    haptic([50, 30, 10]);
+    haptic([100, 50, 100]); // Сильная двойная отдача при удалении
     const newList = workouts.filter(w => w.id !== id);
     setWorkouts(newList);
     syncToCloud(newList);
@@ -133,7 +134,7 @@ const App: React.FC = () => {
           <p className="text-[8px] text-zinc-500 uppercase font-black tracking-[0.3em]">Strong Tracker</p>
         </div>
         <button 
-          onClick={() => fetchFromCloud()} 
+          onClick={() => { haptic(20); fetchFromCloud(); }} 
           disabled={user.email === 'guest@local.app' || syncStatus === 'loading'} 
           className="p-2 text-zinc-500 disabled:opacity-50"
         >
@@ -142,7 +143,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 px-4 py-6">
-        {activeTab === 'dashboard' && <Dashboard workouts={workouts} onAddClick={() => { haptic(40); setActiveTab('add'); }} />}
+        {activeTab === 'dashboard' && <Dashboard workouts={workouts} onAddClick={() => { haptic(60); setActiveTab('add'); }} />}
         {activeTab === 'history' && <WorkoutHistory workouts={workouts} onDelete={handleDeleteWorkout} onEdit={(w) => { setEditingWorkout(w); handleTabChange('add'); }} />}
         {activeTab === 'analytics' && <AnalyticsView workouts={workouts} />}
         {activeTab === 'add' && <WorkoutEditor onSave={(w) => { 
@@ -160,7 +161,7 @@ const App: React.FC = () => {
         <NavButton active={activeTab === 'dashboard'} onClick={() => handleTabChange('dashboard')} icon={<Home size={22} />} label="Дом" />
         <NavButton active={activeTab === 'history'} onClick={() => handleTabChange('history')} icon={<History size={22} />} label="История" />
         <div className="flex justify-center">
-          <button onClick={() => { haptic(40); setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-12 active:scale-90 transition-all">
+          <button onClick={() => { haptic(60); setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-12 active:scale-90 transition-all">
             <Plus size={32} className="-rotate-45" />
           </button>
         </div>
