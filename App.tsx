@@ -22,8 +22,6 @@ const App: React.FC = () => {
   });
 
   const getScriptUrl = () => localStorage.getItem('google-script-url') || '';
-  
-  // Ключ хранилища теперь ВСЕГДА привязан к email. Нет email - нет данных.
   const storageKey = useMemo(() => user ? `gym-v2-data-${user.email}` : null, [user]);
 
   const processWorkouts = (data: Workout[]): Workout[] => {
@@ -39,15 +37,11 @@ const App: React.FC = () => {
     
     setSyncStatus('loading');
     try {
-      const payload = {
-        email: user.email,
-        workouts: data
-      };
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ email: user.email, workouts: data })
       });
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -64,7 +58,6 @@ const App: React.FC = () => {
     try {
       const fullUrl = new URL(url);
       fullUrl.searchParams.append('email', user.email);
-      
       const response = await fetch(fullUrl.toString());
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -79,29 +72,18 @@ const App: React.FC = () => {
     }
   }, [user, syncStatus, storageKey]);
 
-  // Загрузка данных при входе в аккаунт
   useEffect(() => {
     if (user && storageKey) {
       const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        setWorkouts(processWorkouts(JSON.parse(stored)));
-      } else {
-        // Никаких INITIAL_DATA. Чистый лист для каждого пользователя.
-        setWorkouts([]);
-      }
+      setWorkouts(stored ? processWorkouts(JSON.parse(stored)) : []);
       setIsLoaded(true);
-      
-      // Автоматическая загрузка из облака только для Google-аккаунтов
-      if (user.email !== 'guest@local.app') {
-        fetchFromCloud();
-      }
+      if (user.email !== 'guest@local.app') fetchFromCloud();
     } else {
       setIsLoaded(false);
       setWorkouts([]);
     }
   }, [user, storageKey, fetchFromCloud]);
 
-  // Локальное сохранение при изменениях
   useEffect(() => {
     if (isLoaded && storageKey) {
       localStorage.setItem(storageKey, JSON.stringify(workouts));
@@ -114,52 +96,12 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    if (!confirm('Выйти из аккаунта?')) return;
+    if (!confirm('Выйти?')) return;
     setUser(null);
     localStorage.removeItem('gym_user_profile');
     setWorkouts([]);
     setActiveTab('dashboard');
   };
-
-  const addWorkout = (workout: Workout) => {
-    setWorkouts(prev => {
-      let newWorkouts: Workout[];
-      if (editingWorkout) {
-        newWorkouts = prev.map(w => w.id === editingWorkout.id ? workout : w);
-        setEditingWorkout(null);
-      } else {
-        newWorkouts = [workout, ...prev];
-      }
-      const processed = processWorkouts(newWorkouts);
-      syncToCloud(processed); 
-      return processed;
-    });
-    setActiveTab('history');
-  };
-
-  const deleteWorkout = (id: string) => {
-    if (!confirm('Удалить тренировку?')) return;
-    setWorkouts(prev => {
-      const newWorkouts = prev.filter(w => w.id !== id);
-      const processed = processWorkouts(newWorkouts);
-      syncToCloud(processed);
-      return processed;
-    });
-  };
-
-  const renderContent = () => {
-    if (!isLoaded) return null;
-    switch (activeTab) {
-      case 'dashboard': return <Dashboard workouts={workouts} onAddClick={() => { setEditingWorkout(null); setActiveTab('add'); }} />;
-      case 'history': return <WorkoutHistory workouts={workouts} onDelete={deleteWorkout} onEdit={(w) => { setEditingWorkout(w); setActiveTab('add'); }} />;
-      case 'analytics': return <AnalyticsView workouts={workouts} />;
-      case 'add': return <WorkoutEditor onSave={addWorkout} onCancel={() => { setEditingWorkout(null); setActiveTab('dashboard'); }} workouts={workouts} initialWorkout={editingWorkout || undefined} />;
-      case 'settings': return <SettingsView workouts={workouts} onImport={(data) => setWorkouts(processWorkouts(data))} onFetch={fetchFromCloud} onLogout={handleLogout} user={user} />;
-      default: return null;
-    }
-  };
-
-  if (!user) return <AuthView onLogin={handleLogin} />;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col pb-24 relative">
@@ -171,23 +113,29 @@ const App: React.FC = () => {
           <h1 className="text-xl font-bold tracking-tight text-white">GymProg</h1>
           <p className="text-[8px] text-zinc-500 uppercase font-black tracking-[0.3em]">Strong Tracker</p>
         </div>
-        <button 
-          onClick={() => fetchFromCloud()} 
-          disabled={syncStatus === 'loading' || user.email === 'guest@local.app'} 
-          className={`p-2 rounded-xl transition-all active:scale-90 ${(syncStatus === 'loading' || user.email === 'guest@local.app') ? 'text-zinc-800' : syncStatus === 'error' ? 'text-rose-400' : 'text-zinc-500'}`}
-        >
-          {syncStatus === 'error' ? <AlertTriangle size={18} /> : <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin' : ''} />}
+        <button onClick={() => fetchFromCloud()} disabled={!user || user.email === 'guest@local.app'} className="p-2 text-zinc-500">
+          <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin text-indigo-400' : ''} />
         </button>
       </header>
 
-      <main className="flex-1 px-4 py-6">{renderContent()}</main>
+      <main className="flex-1 px-4 py-6">
+        {activeTab === 'dashboard' && <Dashboard workouts={workouts} onAddClick={() => setActiveTab('add')} />}
+        {activeTab === 'history' && <WorkoutHistory workouts={workouts} onDelete={(id) => setWorkouts(workouts.filter(w => w.id !== id))} onEdit={(w) => { setEditingWorkout(w); setActiveTab('add'); }} />}
+        {activeTab === 'analytics' && <AnalyticsView workouts={workouts} />}
+        {activeTab === 'add' && <WorkoutEditor onSave={(w) => { 
+          const newList = editingWorkout ? workouts.map(ex => ex.id === editingWorkout.id ? w : ex) : [w, ...workouts];
+          setWorkouts(processWorkouts(newList));
+          setEditingWorkout(null);
+          setActiveTab('history');
+          syncToCloud(newList);
+        }} onCancel={() => setActiveTab('dashboard')} workouts={workouts} initialWorkout={editingWorkout || undefined} />}
+        {activeTab === 'settings' && <SettingsView workouts={workouts} onImport={(d) => setWorkouts(processWorkouts(d))} onFetch={fetchFromCloud} onLogout={handleLogout} user={user} />}
+      </main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border-t border-zinc-800 px-6 py-4 flex justify-between items-center z-40">
         <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Home size={22} />} label="Дом" />
         <NavButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History size={22} />} label="История" />
-        <div className="relative -top-10">
-           <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-[0_8px_30px_rgba(79,70,229,0.3)] active:scale-95 transition-all"><Plus size={32} className="-rotate-45" /></button>
-        </div>
+        <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-10 active:scale-95 transition-all"><Plus size={32} className="-rotate-45" /></button>
         <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
         <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={22} />} label="Профиль" />
       </nav>
