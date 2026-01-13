@@ -13,7 +13,6 @@ import {
   User, 
   Trash2, 
   ArrowRightLeft, 
-  Info,
   Layers
 } from 'lucide-react';
 
@@ -83,7 +82,6 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
       if (type === 'down') {
         await onFetch();
       } else {
-        // Принудительная синхронизация текущих данных
         const SYNC_URL = 'https://script.google.com/macros/s/AKfycbwVVNjgGy_qyHofaYkpn99jsaN5x453kdQsFaSU7mWgZn4O3Lo0q9H76lpI7o7LSDjieg/exec';
         await fetch(SYNC_URL, {
           method: 'POST',
@@ -108,7 +106,6 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-      {/* Профиль */}
       <div className="bg-zinc-900 rounded-[32px] p-6 border border-zinc-800 shadow-xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/5 blur-3xl rounded-full"></div>
         <div className="flex items-center gap-4 relative z-10">
@@ -131,7 +128,13 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
         </div>
       </div>
 
-      {/* Вход для гостя */}
+      {!isGuest && localStorage.getItem('gym-v2-data-guest@local.app') && (
+        <button onClick={onMigrate} className="w-full p-4 bg-indigo-600 text-white rounded-3xl flex items-center justify-center gap-3 font-bold shadow-lg active:scale-95 transition-all">
+          <ArrowRightLeft size={20} />
+          <span>Перенести данные гостя</span>
+        </button>
+      )}
+
       {isGuest && (
         <div className="bg-indigo-600/10 rounded-[32px] p-6 border border-indigo-500/20 shadow-xl space-y-4">
             <div className="flex items-center gap-3">
@@ -144,7 +147,6 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
         </div>
       )}
 
-      {/* База данных */}
       <div className="bg-zinc-900 rounded-[32px] p-6 border border-zinc-800 shadow-xl space-y-6">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -201,12 +203,11 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
         )}
       </div>
 
-      {/* Инфо */}
       <div className="bg-zinc-900/50 rounded-3xl p-6 border border-zinc-800 flex flex-col items-center text-center gap-3">
          <Globe className="text-zinc-700" size={32} />
          <p className="text-[11px] text-zinc-600 font-medium leading-relaxed">
-           Для вашего email в общей таблице создается <strong>персональная вкладка</strong>. <br/>
-           Все тренировки пишутся построчно — это профессиональный подход к данным.
+           Для каждого пользователя в общей таблице создается <strong>персональная вкладка</strong>. <br/>
+           Тренировки пишутся построчно — это профессиональный подход к данным.
          </p>
       </div>
     </div>
