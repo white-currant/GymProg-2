@@ -9,7 +9,6 @@ import WorkoutEditor from './components/WorkoutEditor';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
 
-// Скрытый URL базы данных (Google Apps Script)
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbwVVNjgGy_qyHofaYkpn99jsaN5x453kdQsFaSU7mWgZn4O3Lo0q9H76lpI7o7LSDjieg/exec';
 
 const App: React.FC = () => {
@@ -51,15 +50,17 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  const fetchFromCloud = useCallback(async () => {
-    if (!user || syncStatus === 'loading' || user.email === 'guest@local.app') return;
+  const fetchFromCloud = useCallback(async (targetEmail?: string) => {
+    const emailToFetch = targetEmail || user?.email;
+    if (!emailToFetch || emailToFetch === 'guest@local.app') return;
     
     setSyncStatus('loading');
     try {
       const fullUrl = new URL(SYNC_URL);
-      fullUrl.searchParams.append('email', user.email);
+      fullUrl.searchParams.append('email', emailToFetch);
       const response = await fetch(fullUrl.toString());
       const data = await response.json();
+      
       if (Array.isArray(data)) {
         const merged = processWorkouts([...data]);
         setWorkouts(merged);
@@ -68,16 +69,21 @@ const App: React.FC = () => {
         setTimeout(() => setSyncStatus('idle'), 3000);
       }
     } catch (e) {
+      console.error("Fetch error:", e);
       setSyncStatus('error');
     }
-  }, [user, syncStatus, storageKey]);
+  }, [user, storageKey]);
 
   useEffect(() => {
     if (user && storageKey) {
       const stored = localStorage.getItem(storageKey);
-      setWorkouts(stored ? processWorkouts(JSON.parse(stored)) : []);
+      const localData = stored ? processWorkouts(JSON.parse(stored)) : [];
+      setWorkouts(localData);
       setIsLoaded(true);
-      if (user.email !== 'guest@local.app') fetchFromCloud();
+      
+      if (user.email !== 'guest@local.app') {
+        fetchFromCloud();
+      }
     } else {
       setIsLoaded(false);
       setWorkouts([]);
@@ -97,17 +103,29 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     if (!confirm('Выйти из аккаунта?')) return;
-    
-    // Очистка Google сессии если она активна
     if ((window as any).google?.accounts?.id) {
         (window as any).google.accounts.id.disableAutoSelect();
     }
-
     localStorage.removeItem('gym_user_profile');
     setUser(null);
     setWorkouts([]);
     setIsLoaded(false);
     setActiveTab('dashboard');
+  };
+
+  const handleMigrateGuestData = () => {
+    const guestData = localStorage.getItem('gym-v2-data-guest@local.app');
+    if (guestData && user && user.email !== 'guest@local.app') {
+      const parsed = JSON.parse(guestData);
+      const merged = processWorkouts([...workouts, ...parsed]);
+      setWorkouts(merged);
+      syncToCloud(merged);
+      if (confirm('Данные перенесены. Удалить данные из гостевого профиля?')) {
+        localStorage.removeItem('gym-v2-data-guest@local.app');
+      }
+    } else {
+      alert('Данные для переноса не найдены');
+    }
   };
 
   if (!user) {
@@ -140,12 +158,22 @@ const App: React.FC = () => {
           setActiveTab('history');
           syncToCloud(newList);
         }} onCancel={() => setActiveTab('dashboard')} workouts={workouts} initialWorkout={editingWorkout || undefined} />}
-        {activeTab === 'settings' && <SettingsView workouts={workouts} onImport={(d) => setWorkouts(processWorkouts(d))} onFetch={fetchFromCloud} onLogout={handleLogout} onLogin={handleLogin} user={user} />}
+        {activeTab === 'settings' && (
+          <SettingsView 
+            workouts={workouts} 
+            onImport={(d) => setWorkouts(processWorkouts(d))} 
+            onFetch={() => fetchFromCloud()} 
+            onLogout={handleLogout} 
+            onLogin={handleLogin} 
+            onMigrate={handleMigrateGuestData} 
+            user={user} 
+          />
+        )}
       </main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border-t border-zinc-800 px-6 py-4 flex justify-between items-center z-40">
         <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Home size={22} />} label="Дом" />
-        <NavButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History size={22} />} label="История" />
+        <NavButton active={activeTab === 'history'} onClick={() => setActiveTab('history'} icon={<History size={22} />} label="История" />
         <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-10 active:scale-95 transition-all"><Plus size={32} className="-rotate-45" /></button>
         <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
         <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={22} />} label="Профиль" />
