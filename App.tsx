@@ -37,7 +37,6 @@ const App: React.FC = () => {
     
     setSyncStatus('loading');
     try {
-      // no-cors не позволяет читать ответ, но гарантирует отправку без блокировок CORS
       await fetch(SYNC_URL, {
         method: 'POST',
         mode: 'no-cors',
@@ -71,7 +70,6 @@ const App: React.FC = () => {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        // Если Google вернул HTML (например страницу входа), значит доступ не Anyone
         throw new Error('Script returned HTML instead of JSON. Check access settings.');
       }
       
@@ -86,7 +84,6 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Fetch error:", e);
       setSyncStatus('error');
-      // Оповещаем пользователя, если это ошибка прав доступа
       if (e instanceof Error && e.message.includes('HTML')) {
         alert('Ошибка доступа к Google Скрипту. Убедитесь, что при развертывании выбрано "Anyone" (Все).');
       }
@@ -196,10 +193,19 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border-t border-zinc-800 px-6 py-4 flex justify-between items-center z-40">
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/95 backdrop-blur-2xl border-t border-zinc-800/50 py-3 grid grid-cols-5 items-center z-40 px-2">
         <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Home size={22} />} label="Дом" />
         <NavButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History size={22} />} label="История" />
-        <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-10 active:scale-95 transition-all focus:outline-none"><Plus size={32} className="-rotate-45" /></button>
+        
+        <div className="flex justify-center">
+          <button 
+            onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} 
+            className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-[0_10px_30px_-10px_rgba(79,70,229,0.5)] -mt-12 active:scale-90 transition-all focus:outline-none"
+          >
+            <Plus size={32} className="-rotate-45" />
+          </button>
+        </div>
+
         <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
         <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={22} />} label="Профиль" />
       </nav>
@@ -208,8 +214,11 @@ const App: React.FC = () => {
 };
 
 const NavButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-all focus:outline-none ${active ? 'text-indigo-400 scale-110' : 'text-zinc-600'}`}>
-    {icon} <span className="text-[9px] font-bold uppercase tracking-wider">{label}</span>
+  <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all focus:outline-none w-full ${active ? 'text-indigo-400' : 'text-zinc-600'}`}>
+    <div className={`p-1 rounded-xl transition-colors ${active ? 'bg-indigo-500/10' : ''}`}>
+      {icon}
+    </div>
+    <span className="text-[8px] font-black uppercase tracking-[0.15em]">{label}</span>
   </button>
 );
 
