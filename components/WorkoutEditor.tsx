@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Workout, Exercise, WorkoutType, WorkoutSet } from '../types';
-import { Save, X, Plus, Trash, Scale, RotateCcw, ChevronUp, ChevronDown, Clock, Calendar } from 'lucide-react';
+import { Save, X, Plus, Trash, Scale, RotateCcw, ChevronUp, ChevronDown, Play, CheckCircle2, Target } from 'lucide-react';
+import { haptic } from '../App';
 
 interface EditorProps {
   onSave: (workout: Workout) => void;
@@ -11,26 +12,8 @@ interface EditorProps {
 }
 
 const STATIC_TEMPLATES: Record<WorkoutType, string[]> = {
-  A: [
-    'Жим в блоке в наклоне',
-    'Пресс в блоке',
-    'Жим в блоке горизонтально',
-    'Сгибание ног в блоке',
-    'Жим ногами в блоке',
-    'Разгибание ног в блоке',
-    'Икры в блоке',
-    'Трицепс в блоке (x/2)'
-  ],
-  B: [
-    'Пресс в блоке',
-    'Тяга в блоке вертикально (узким хватом)',
-    'Upper back',
-    'Бицепс в блоке сидя',
-    'Плечи в блоке сидя (разведение)',
-    'Плечи в блоке стоя (x/2)',
-    'Бицепс гантели',
-    'Плечи гантели (разведение)'
-  ]
+  A: ['Жим в блоке в наклоне', 'Пресс в блоке', 'Жим в блоке горизонтально', 'Сгибание ног в блоке', 'Жим ногами в блоке', 'Разгибание ног в блоке', 'Икры в блоке', 'Трицепс в блоке (x/2)'],
+  B: ['Пресс в блоке', 'Тяга в блоке вертикально (узким хватом)', 'Upper back', 'Бицепс в блоке сидя', 'Плечи в блоке сидя (разведение)', 'Плечи в блоке стоя (x/2)', 'Бицепс гантели', 'Плечи гантели (разведение)']
 };
 
 const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, initialWorkout }) => {
@@ -39,24 +22,23 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   const [userWeight, setUserWeight] = useState<string>(initialWorkout?.userWeight?.toString() || '');
   const [exercises, setExercises] = useState<Exercise[]>(initialWorkout?.exercises || []);
   const [newExerciseName, setNewExerciseName] = useState('');
+  const [isStarted, setIsStarted] = useState(!!initialWorkout);
   
   const startTimeRef = useRef<number>(Date.now());
 
-  const getLastSetsForExercise = (name: string): WorkoutSet[] => {
-    const cleanName = name.trim();
-    const minSets = cleanName === 'Жим в блоке горизонтально' ? 4 : 1;
+  const getRecommendation = (name: string) => {
+    const cleanName = name.trim().toLowerCase();
+    const history = workouts.filter(w => w.exercises.some(e => e.name.trim().toLowerCase() === cleanName));
+    if (history.length === 0) return null;
 
-    for (const workout of workouts) {
-      const found = workout.exercises.find(e => e.name.trim().toLowerCase() === cleanName.toLowerCase());
-      if (found && found.sets.length > 0) {
-        let setsCount = found.sets.length;
-        if (cleanName === 'Жим в блоке горизонтально' && setsCount < 4) {
-          setsCount = 4;
-        }
-        return Array(setsCount).fill(null).map(() => ({ reps: 0, weight: 0 }));
-      }
+    const lastEx = history[0].exercises.find(e => e.name.trim().toLowerCase() === cleanName)!;
+    const lastMaxWeight = Math.max(...lastEx.sets.map(s => s.weight));
+    const lastBestReps = Math.max(...lastEx.sets.filter(s => s.weight === lastMaxWeight).map(s => s.reps));
+
+    if (lastBestReps >= 10) {
+        return { weight: lastMaxWeight + 2.5, reason: "+2.5кг" };
     }
-    return Array(minSets).fill(null).map(() => ({ reps: 0, weight: 0 }));
+    return { weight: lastMaxWeight, reason: "закрепить" };
   };
 
   const loadTemplate = (selectedType: WorkoutType) => {
@@ -64,7 +46,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
     const newExercises: Exercise[] = templateNames.map(name => ({
       id: Math.random().toString(36).substr(2, 9),
       name: name,
-      sets: getLastSetsForExercise(name)
+      sets: [{ reps: 0, weight: 0 }]
     }));
     setExercises(newExercises);
   };
@@ -78,194 +60,159 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
     }
   }, []);
 
-  const handleTypeChange = (newType: WorkoutType) => {
-    if (newType === type) return;
-    if (!initialWorkout) {
-      const hasEnteredData = exercises.some(ex => ex.sets.some(s => s.reps > 0 || s.weight > 0));
-      if (!hasEnteredData || confirm(`Сменить шаблон на "${newType}"?`)) {
-        setType(newType);
-        loadTemplate(newType);
-      }
-    } else {
-      setType(newType);
-    }
-  };
-
-  const moveExercise = (index: number, direction: 'up' | 'down') => {
-    const newExercises = [...exercises];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= newExercises.length) return;
-    const temp = newExercises[index];
-    newExercises[index] = newExercises[targetIndex];
-    newExercises[targetIndex] = temp;
-    setExercises(newExercises);
+  const handleStart = () => {
+    haptic([30, 20]);
+    startTimeRef.current = Date.now();
+    setIsStarted(true);
   };
 
   const handleSave = () => {
+    if (!isStarted) return alert('Сначала начните тренировку');
     if (exercises.length === 0) return alert('Добавьте упражнения');
+    haptic([20, 50]);
     const durationMs = Date.now() - startTimeRef.current;
-    const durationMin = Math.max(1, Math.round(durationMs / 60000));
-
     onSave({
       id: initialWorkout?.id || Date.now().toString(),
       date,
       type,
       userWeight: userWeight ? parseFloat(userWeight.replace(',', '.')) : undefined,
       exercises,
-      duration: initialWorkout?.duration || durationMin
+      duration: initialWorkout?.duration || Math.max(1, Math.round(durationMs / 60000))
     });
   };
 
   return (
-    <div className="space-y-4 pb-10 animate-in slide-in-from-right-4 duration-300">
-      {/* Переработанный компактный заголовок */}
-      <div className="bg-zinc-900/50 backdrop-blur-sm rounded-[24px] p-3 border border-zinc-800 shadow-xl space-y-3">
-        <div className="grid grid-cols-12 gap-2">
-          {/* Блок даты */}
-          <div className="col-span-6 space-y-1">
-            <label className="text-[8px] font-black text-zinc-500 uppercase flex items-center gap-1 ml-1">
-              <Calendar size={10} /> Дата
-            </label>
-            <input 
-              type="date" 
-              className="w-full bg-zinc-800/80 border border-zinc-700/50 rounded-xl py-2 px-2 text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500 transition-colors" 
-              value={date} 
-              onChange={(e) => setDate(e.target.value)} 
-            />
-          </div>
-
-          {/* Блок типа тренировки */}
-          <div className="col-span-4 space-y-1">
-            <label className="text-[8px] font-black text-zinc-500 uppercase block text-center">Тип</label>
-            <div className="flex bg-zinc-800/80 rounded-xl p-0.5 border border-zinc-700/50 h-[38px]">
-              <button onClick={() => handleTypeChange('A')} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'A' ? 'bg-white text-indigo-600 shadow-md scale-105' : 'text-zinc-500'}`}>A</button>
-              <button onClick={() => handleTypeChange('B')} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'B' ? 'bg-white text-emerald-600 shadow-md scale-105' : 'text-zinc-500'}`}>B</button>
-            </div>
-          </div>
-
-          {/* Кнопка сброса */}
-          <div className="col-span-2 flex flex-col justify-end">
-            <button 
-                onClick={() => loadTemplate(type)} 
-                className="h-[38px] w-full flex items-center justify-center bg-zinc-800/80 text-zinc-500 rounded-xl border border-zinc-700/50 active:text-indigo-400 active:scale-90 transition-all"
-                title="Сбросить список"
-              >
-                <RotateCcw size={14} />
-            </button>
+    <div className="space-y-4 pb-12 animate-in slide-in-from-right-4 duration-300">
+      <div className="bg-zinc-900 rounded-[28px] p-4 border border-zinc-800 shadow-xl space-y-3">
+        <div className="grid grid-cols-[1.5fr_1fr] gap-2">
+          <input 
+            type="date" 
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-2 px-3 text-[11px] font-bold text-zinc-100 outline-none" 
+            value={date} 
+            onChange={(e) => setDate(e.target.value)} 
+          />
+          <div className="flex bg-zinc-800 rounded-xl p-1 border border-zinc-700 h-[38px]">
+            <button onClick={() => { haptic(10); setType('A'); loadTemplate('A'); }} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'A' ? 'bg-indigo-600 text-white shadow-lg' : 'text-zinc-500'}`}>A</button>
+            <button onClick={() => { haptic(10); setType('B'); loadTemplate('B'); }} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'B' ? 'bg-emerald-600 text-white shadow-lg' : 'text-zinc-500'}`}>B</button>
           </div>
         </div>
 
-        {/* Блок веса тела */}
-        <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">
-              <Scale size={14} />
-            </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="relative">
+            <Scale className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={12} />
             <input 
               type="text" 
-              inputMode="decimal"
-              className="w-full bg-zinc-800/50 border border-zinc-700/30 rounded-xl py-2 pl-9 pr-4 text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500/50 transition-all" 
+              inputMode="decimal" 
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-2 pl-8 pr-2 text-[11px] font-bold text-zinc-100 outline-none placeholder:text-zinc-600" 
               value={userWeight} 
               onChange={(e) => setUserWeight(e.target.value)} 
-              placeholder="Вес тела (кг)"
+              placeholder="Вес тела" 
             />
+          </div>
+          {!isStarted ? (
+            <button onClick={handleStart} className="w-full bg-indigo-600 text-white rounded-xl py-2 px-2 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all">
+              <Play size={12} fill="currentColor" /> Начать
+            </button>
+          ) : (
+            <div className="w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl py-2 px-2 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5">
+              <CheckCircle2 size={12} /> В процессе
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="space-y-4">
-        {exercises.map((exercise, index) => (
-          <div key={exercise.id} className="bg-zinc-900 rounded-[28px] p-4 border border-zinc-800 shadow-lg border-l-4 border-l-indigo-500/30">
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex-1 mr-2">
-                <input
-                  type="text"
-                  className="font-bold text-zinc-100 bg-transparent border-b border-dashed border-zinc-800 focus:border-indigo-500 focus:outline-none py-1 w-full text-base"
-                  value={exercise.name}
-                  onChange={(e) => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, name: e.target.value} : ex))}
-                />
+      <div className={`space-y-4 transition-opacity duration-300 ${!isStarted ? 'opacity-40 pointer-events-none grayscale' : 'opacity-100'}`}>
+        {exercises.map((exercise) => {
+          const rec = getRecommendation(exercise.name);
+          return (
+            <div key={exercise.id} className="bg-zinc-900 rounded-[30px] p-4 border border-zinc-800 shadow-lg relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4 gap-2">
+                <div className="flex-1 min-w-0">
+                  <input 
+                    type="text" 
+                    className="font-black text-white bg-transparent focus:outline-none w-full text-base mb-0.5 truncate" 
+                    value={exercise.name} 
+                    onChange={(e) => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, name: e.target.value} : ex))} 
+                  />
+                  {rec && (
+                    <div className="flex items-center gap-1 text-[9px] font-black text-indigo-400 uppercase tracking-tighter">
+                      <Target size={10} className="shrink-0" /> Цель: {rec.weight}кг ({rec.reason})
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => { haptic(5); setExercises(exercises.filter(ex => ex.id !== exercise.id)); }} className="p-1 text-zinc-700 active:text-rose-500 transition-colors shrink-0 mt-1">
+                  <Trash size={16} />
+                </button>
               </div>
-              <div className="flex items-center gap-0.5">
-                <button disabled={index === 0} onClick={() => moveExercise(index, 'up')} className={`p-1.5 ${index === 0 ? 'text-zinc-800' : 'text-zinc-500'}`}><ChevronUp size={16} /></button>
-                <button disabled={index === exercises.length - 1} onClick={() => moveExercise(index, 'down')} className={`p-1.5 ${index === exercises.length - 1 ? 'text-zinc-800' : 'text-zinc-500'}`}><ChevronDown size={16} /></button>
-                <button onClick={() => setExercises(exercises.filter(ex => ex.id !== exercise.id))} className="p-1.5 text-rose-500/30 active:text-rose-500 ml-1"><Trash size={16} /></button>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-2.5">
-              {exercise.sets.map((set, sIdx) => (
-                <div key={sIdx} className="flex items-center gap-2">
-                  <div className="w-7 h-7 shrink-0 rounded-full bg-zinc-800 text-[10px] flex items-center justify-center font-black text-zinc-500 border border-zinc-700">{sIdx + 1}</div>
-                  <div className="flex-1 grid grid-cols-2 gap-2">
+              
+              <div className="space-y-2">
+                {exercise.sets.map((set, sIdx) => (
+                  <div key={sIdx} className="grid grid-cols-[24px_1fr_1fr_24px] items-center gap-1.5">
+                    <div className="text-[10px] flex items-center justify-center font-black text-zinc-700">
+                      {sIdx + 1}
+                    </div>
                     <input 
                       type="number" 
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2 px-3 text-base font-bold text-zinc-100 outline-none focus:bg-zinc-700/50"
-                      value={set.reps || ''} placeholder="Повт"
-                      onChange={(e) => setExercises(exercises.map(ex => {
-                        if (ex.id === exercise.id) {
-                          const newSets = [...ex.sets];
-                          newSets[sIdx] = {...newSets[sIdx], reps: parseInt(e.target.value) || 0};
-                          return {...ex, sets: newSets};
-                        }
-                        return ex;
-                      }))}
+                      inputMode="numeric"
+                      className="w-full min-w-0 bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 px-1 text-center text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500/50 transition-colors" 
+                      value={set.reps || ''} 
+                      placeholder="Повт" 
+                      onChange={(e) => {
+                        const newSets = [...exercise.sets];
+                        newSets[sIdx] = {...newSets[sIdx], reps: parseInt(e.target.value) || 0};
+                        setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: newSets} : ex));
+                      }} 
                     />
                     <input 
-                      type="text" inputMode="decimal"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2 px-3 text-base font-bold text-zinc-100 outline-none focus:bg-zinc-700/50"
-                      value={set.weight || ''} placeholder="КГ"
-                      onChange={(e) => setExercises(exercises.map(ex => {
-                        if (ex.id === exercise.id) {
-                          const newSets = [...ex.sets];
-                          newSets[sIdx] = {...newSets[sIdx], weight: parseFloat(e.target.value.replace(',','.')) || 0};
-                          return {...ex, sets: newSets};
-                        }
-                        return ex;
-                      }))}
+                      type="text" 
+                      inputMode="decimal" 
+                      className="w-full min-w-0 bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 px-1 text-center text-sm font-bold text-zinc-100 outline-none focus:border-indigo-500/50 transition-colors" 
+                      value={set.weight || ''} 
+                      placeholder="КГ" 
+                      onChange={(e) => {
+                        const newSets = [...exercise.sets];
+                        newSets[sIdx] = {...newSets[sIdx], weight: parseFloat(e.target.value.replace(',','.')) || 0};
+                        setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: newSets} : ex));
+                      }} 
                     />
+                    <button onClick={() => { haptic(2); setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: ex.sets.filter((_, i) => i !== sIdx)} : ex)); }} className="flex items-center justify-center text-zinc-800 active:text-rose-500">
+                      <X size={16} />
+                    </button>
                   </div>
-                  <button onClick={() => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: ex.sets.filter((_, i) => i !== sIdx)} : ex))} className="p-1.5 text-zinc-700 active:text-zinc-400"><X size={16} /></button>
-                </div>
-              ))}
-              <button onClick={() => setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: [...ex.sets, {reps: 0, weight: 0}]} : ex))} className="w-full py-2.5 border border-dashed border-zinc-800 rounded-lg text-[10px] font-black text-zinc-600 uppercase active:bg-zinc-800 transition-all">+ Подход</button>
+                ))}
+                <button onClick={() => { haptic(5); setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: [...ex.sets, {reps: 0, weight: 0}]} : ex)); }} className="w-full py-2.5 bg-zinc-800/30 border border-dashed border-zinc-800/50 rounded-xl text-[9px] font-black text-zinc-600 uppercase tracking-widest active:bg-zinc-800 transition-all mt-1">
+                  + Подход
+                </button>
+              </div>
             </div>
+          );
+        })}
+      </div>
+
+      {isStarted && (
+        <>
+          <div className="bg-zinc-900 rounded-[24px] p-4 border border-dashed border-zinc-800 mt-2">
+            <input 
+              type="text" 
+              placeholder="Новое упражнение..." 
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-sm font-bold text-zinc-100 mb-3 outline-none" 
+              value={newExerciseName} 
+              onChange={(e) => setNewExerciseName(e.target.value)} 
+            />
+            <button 
+              onClick={() => { if(newExerciseName) { setExercises(prev => [...prev, {id: Math.random().toString(36).substr(2, 9), name: newExerciseName, sets: [{reps: 0, weight: 0}]}]); setNewExerciseName(''); haptic(10); } }} 
+              className="w-full py-3 bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-zinc-700 active:scale-95 transition-all"
+            >
+              + Добавить в план
+            </button>
           </div>
-        ))}
-      </div>
 
-      <div className="bg-zinc-900 rounded-[24px] p-4 border border-dashed border-indigo-900/30 space-y-3">
-        <input 
-          type="text" 
-          placeholder="Новое упражнение..." 
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-3 px-4 text-base font-bold text-zinc-100 outline-none focus:border-indigo-500" 
-          value={newExerciseName} 
-          onChange={(e) => setNewExerciseName(e.target.value)} 
-        />
-        <button 
-          onClick={() => { 
-            if(newExerciseName) { 
-              setExercises(prev => [...prev, {id: Math.random().toString(36).substr(2, 9), name: newExerciseName, sets: getLastSetsForExercise(newExerciseName)}]); 
-              setNewExerciseName(''); 
-            } 
-          }} 
-          className="w-full py-3 bg-indigo-600/10 text-indigo-400 rounded-lg text-[10px] font-black uppercase tracking-widest active:bg-indigo-600/20 border border-indigo-500/20"
-        >
-          <Plus size={14} className="inline mr-1" /> Добавить
-        </button>
-      </div>
-
-      <div className="flex gap-3 pt-6 pb-12">
-        <button 
-          onClick={onCancel} 
-          className="flex-1 py-4 bg-zinc-900 text-zinc-500 rounded-2xl font-black text-xs uppercase tracking-widest border border-zinc-800 active:scale-95 transition-all"
-        >
-          Отмена
-        </button>
-        <button 
-          onClick={handleSave} 
-          className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
-        >
-          <Save size={18} /> Сохранить
-        </button>
-      </div>
+          <div className="flex gap-3 pt-4">
+            <button onClick={() => { haptic([40, 40]); onCancel(); }} className="flex-1 py-4 bg-zinc-900 text-zinc-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-zinc-800 active:bg-zinc-800 transition-all">Отмена</button>
+            <button onClick={handleSave} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_10px_30px_-10px_rgba(79,70,229,0.5)] active:scale-95 transition-all">Завершить</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
