@@ -17,7 +17,16 @@ const STATIC_TEMPLATES: Record<WorkoutType, string[]> = {
 };
 
 const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, initialWorkout }) => {
-  const [date, setDate] = useState(() => initialWorkout?.date || new Date().toISOString().split('T')[0]);
+  // Функция для получения локальной даты устройства в формате ГГГГ-ММ-ДД без UTC смещения
+  const getLocalDate = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const [date, setDate] = useState(() => initialWorkout?.date || getLocalDate());
   const [type, setType] = useState<WorkoutType>(initialWorkout?.type || 'A');
   const [userWeight, setUserWeight] = useState<string>(initialWorkout?.userWeight?.toString() || '');
   const [exercises, setExercises] = useState<Exercise[]>(initialWorkout?.exercises || []);
@@ -26,39 +35,43 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   
   const startTimeRef = useRef<number>(Date.now());
 
-  // При монтировании, если это новая тренировка, ставим актуальную дату
   useEffect(() => {
     if (!initialWorkout) {
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getLocalDate());
     }
   }, [initialWorkout]);
 
-  // Умный расчет: Прогнозный максимум (1RM) и рекомендация
+  // Умный расчет: Реальный рекорд и рекомендация
   const getSmartTarget = (name: string) => {
     const cleanName = name.trim().toLowerCase();
     const history = workouts.filter(w => w.exercises.some(e => e.name.trim().toLowerCase() === cleanName));
+    
     if (history.length === 0) return null;
 
+    let absoluteRecord = 0;
+    // Находим реальный максимальный вес, который когда-либо поднимался
+    workouts.forEach(w => {
+        const ex = w.exercises.find(e => e.name.trim().toLowerCase() === cleanName);
+        if (ex) {
+            ex.sets.forEach(s => {
+                if (s.weight > absoluteRecord) absoluteRecord = s.weight;
+            });
+        }
+    });
+
     const lastEx = history[0].exercises.find(e => e.name.trim().toLowerCase() === cleanName)!;
-    // Находим лучший подход (по 1RM формуле Бржицки: weight / (1.0278 - (0.0278 * reps)))
-    let best1RM = 0;
     let lastMaxWeight = 0;
     let lastRepsAtMax = 0;
 
     lastEx.sets.forEach(s => {
-      if (s.reps > 0) {
-        const oneRM = s.weight / (1.0278 - (0.0278 * s.reps));
-        if (oneRM > best1RM) best1RM = oneRM;
-      }
       if (s.weight >= lastMaxWeight) {
         lastMaxWeight = s.weight;
         lastRepsAtMax = s.reps;
       }
     });
 
-    // Рекомендация: если сделал 10+ повторов, добавляем вес. Иначе закрепляем.
     const targetWeight = lastRepsAtMax >= 10 ? lastMaxWeight + 2.5 : lastMaxWeight;
-    return { targetWeight, oneRM: Math.round(best1RM), isProgress: lastRepsAtMax >= 10 };
+    return { targetWeight, record: absoluteRecord, isProgress: lastRepsAtMax >= 10 };
   };
 
   const loadTemplate = (selectedType: WorkoutType) => {
@@ -66,7 +79,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
     const newExercises: Exercise[] = templateNames.map(name => ({
       id: Math.random().toString(36).substr(2, 9),
       name: name,
-      sets: [{ reps: 0, weight: 0 }] // Всегда 1 подход по умолчанию
+      sets: [{ reps: 0, weight: 0 }]
     }));
     setExercises(newExercises);
   };
@@ -81,7 +94,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   }, []);
 
   const handleStart = () => {
-    haptic(50); // Сильная вибрация при старте
+    haptic(50);
     startTimeRef.current = Date.now();
     setIsStarted(true);
   };
@@ -89,7 +102,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   const handleSave = () => {
     if (!isStarted) return;
     if (exercises.length === 0) return;
-    haptic([20, 50, 20]); // Особая вибрация при успешном завершении
+    haptic([20, 50, 20]);
     const durationMs = Date.now() - startTimeRef.current;
     onSave({
       id: initialWorkout?.id || Date.now().toString(),
@@ -103,7 +116,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
 
   return (
     <div className="space-y-4 pb-12 animate-in slide-in-from-right-4 duration-300 overflow-x-hidden">
-      {/* Шапка: Исправлено перекрытие на мобильных */}
       <div className="bg-zinc-900 rounded-[24px] p-4 border border-zinc-800 shadow-xl space-y-3">
         <div className="flex flex-col sm:flex-row gap-2">
           <input 
@@ -142,7 +154,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
         </div>
       </div>
 
-      {/* Список упражнений */}
       <div className={`space-y-4 transition-all duration-300 ${!isStarted ? 'opacity-30 blur-[2px] pointer-events-none' : 'opacity-100'}`}>
         {exercises.map((exercise) => {
           const smart = getSmartTarget(exercise.name);
@@ -162,7 +173,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
                         Цель: {smart.targetWeight}кг
                       </span>
                       <span className="text-[8px] font-black text-zinc-600 uppercase tracking-tighter flex items-center gap-0.5">
-                        <TrendingUp size={8} /> Max: {smart.oneRM}кг
+                        <TrendingUp size={8} /> Рекорд: {smart.record}кг
                       </span>
                     </div>
                   )}
@@ -178,7 +189,6 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
                     <div className="w-5 text-[9px] font-black text-zinc-700 text-center shrink-0">
                       {sIdx + 1}
                     </div>
-                    {/* Инпуты с min-w-0 и flex-1 гарантируют, что они займут всё место, но не вылезут */}
                     <input 
                       type="number" 
                       inputMode="numeric"
