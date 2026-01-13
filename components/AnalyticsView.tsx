@@ -25,7 +25,10 @@ const AnalyticsView: React.FC<AnalyticsProps> = ({ workouts }) => {
     if (!selectedExercise && exerciseNames.length > 0) setSelectedExercise(exerciseNames[0]);
     if (!selectedExercise) return [];
     
+    // Нормализация текущей даты к полуночи
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
     const rangeLimit = timeRange === '30' ? 30 : timeRange === '90' ? 90 : Infinity;
 
     return workouts
@@ -34,8 +37,10 @@ const AnalyticsView: React.FC<AnalyticsProps> = ({ workouts }) => {
         if (!exerciseMatch) return false;
         
         const workoutDate = new Date(w.date);
+        workoutDate.setHours(0, 0, 0, 0);
+        
         const diffDays = Math.floor((now.getTime() - workoutDate.getTime()) / (1000 * 60 * 60 * 24));
-        return diffDays <= rangeLimit;
+        return rangeLimit === Infinity ? true : diffDays <= rangeLimit;
       })
       .map(w => {
         const exercise = w.exercises.find(e => e.name.trim().toLowerCase() === selectedExercise.toLowerCase())!;
