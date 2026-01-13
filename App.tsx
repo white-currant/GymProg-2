@@ -37,6 +37,7 @@ const App: React.FC = () => {
     
     setSyncStatus('loading');
     try {
+      // no-cors не позволяет читать ответ, но гарантирует отправку без блокировок CORS
       await fetch(SYNC_URL, {
         method: 'POST',
         mode: 'no-cors',
@@ -60,11 +61,19 @@ const App: React.FC = () => {
     try {
       const fullUrl = new URL(SYNC_URL);
       fullUrl.searchParams.append('email', emailToFetch);
+      
       const response = await fetch(fullUrl.toString());
       
-      if (!response.ok) throw new Error('Network response was not ok');
-      
-      const data = await response.json();
+      if (!response.ok) throw new Error('HTTP Error');
+
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        // Если Google вернул HTML (например страницу входа), значит доступ не Anyone
+        throw new Error('Script returned HTML instead of JSON. Check access settings.');
+      }
       
       if (Array.isArray(data)) {
         const merged = processWorkouts([...data]);
@@ -77,6 +86,10 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Fetch error:", e);
       setSyncStatus('error');
+      // Оповещаем пользователя, если это ошибка прав доступа
+      if (e instanceof Error && e.message.includes('HTML')) {
+        alert('Ошибка доступа к Google Скрипту. Убедитесь, что при развертывании выбрано "Anyone" (Все).');
+      }
     } finally {
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
