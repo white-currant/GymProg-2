@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Workout } from '../types';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, Activity, Database, Copy, Check } from 'lucide-react';
+import { TrendingUp, Activity } from 'lucide-react';
 
 interface AnalyticsProps {
   workouts: Workout[];
@@ -11,7 +11,6 @@ interface AnalyticsProps {
 const AnalyticsView: React.FC<AnalyticsProps> = ({ workouts }) => {
   const [selectedExercise, setSelectedExercise] = useState<string>('');
   const [timeRange, setTimeRange] = useState<'all' | '30' | '90'>('all');
-  const [copied, setCopied] = useState(false);
 
   const exerciseNames = useMemo(() => {
     const names = new Set<string>();
@@ -93,23 +92,6 @@ const AnalyticsView: React.FC<AnalyticsProps> = ({ workouts }) => {
                 <div className="h-full flex flex-col items-center justify-center text-zinc-700 gap-4"><Activity size={48} className="opacity-10" /></div>
             )}
         </div>
-      </div>
-
-      <div className="bg-zinc-900 rounded-[32px] p-6 border border-zinc-800 shadow-xl overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-3xl rounded-full"></div>
-        <div className="flex items-center gap-3 mb-4 relative z-10">
-          <div className="p-2.5 bg-indigo-500/10 rounded-xl">
-            <Database className="text-indigo-400" size={20} />
-          </div>
-          <h4 className="font-bold text-sm uppercase tracking-wider text-zinc-100">Бэкап в код</h4>
-        </div>
-        <button 
-          onClick={() => { navigator.clipboard.writeText(JSON.stringify(workouts)); setCopied(true); setTimeout(()=>setCopied(false),2000); }}
-          className="w-full py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm relative z-10"
-        >
-          {copied ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} className="text-zinc-400" />}
-          <span className="text-xs font-black uppercase tracking-widest">{copied ? 'Готово' : 'Копировать JSON'}</span>
-        </button>
       </div>
     </div>
   );
