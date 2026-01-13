@@ -44,9 +44,11 @@ const App: React.FC = () => {
         body: JSON.stringify({ email: user.email, workouts: data })
       });
       setSyncStatus('success');
-      setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (e) {
+      console.error("Sync error:", e);
       setSyncStatus('error');
+    } finally {
+      setTimeout(() => setSyncStatus('idle'), 3000);
     }
   }, [user]);
 
@@ -59,6 +61,9 @@ const App: React.FC = () => {
       const fullUrl = new URL(SYNC_URL);
       fullUrl.searchParams.append('email', emailToFetch);
       const response = await fetch(fullUrl.toString());
+      
+      if (!response.ok) throw new Error('Network response was not ok');
+      
       const data = await response.json();
       
       if (Array.isArray(data)) {
@@ -66,11 +71,14 @@ const App: React.FC = () => {
         setWorkouts(merged);
         if (storageKey) localStorage.setItem(storageKey, JSON.stringify(merged));
         setSyncStatus('success');
-        setTimeout(() => setSyncStatus('idle'), 3000);
+      } else {
+        setSyncStatus('success');
       }
     } catch (e) {
       console.error("Fetch error:", e);
       setSyncStatus('error');
+    } finally {
+      setTimeout(() => setSyncStatus('idle'), 3000);
     }
   }, [user, storageKey]);
 
@@ -142,8 +150,12 @@ const App: React.FC = () => {
           <h1 className="text-xl font-bold tracking-tight text-white">GymProg</h1>
           <p className="text-[8px] text-zinc-500 uppercase font-black tracking-[0.3em]">Strong Tracker</p>
         </div>
-        <button onClick={() => fetchFromCloud()} disabled={user.email === 'guest@local.app'} className="p-2 text-zinc-500">
-          <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin text-indigo-400' : ''} />
+        <button 
+          onClick={() => fetchFromCloud()} 
+          disabled={user.email === 'guest@local.app' || syncStatus === 'loading'} 
+          className="p-2 text-zinc-500 disabled:opacity-50"
+        >
+          <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin text-indigo-400' : syncStatus === 'error' ? 'text-rose-500' : syncStatus === 'success' ? 'text-emerald-500' : ''} />
         </button>
       </header>
 
@@ -174,7 +186,7 @@ const App: React.FC = () => {
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border-t border-zinc-800 px-6 py-4 flex justify-between items-center z-40">
         <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Home size={22} />} label="Дом" />
         <NavButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History size={22} />} label="История" />
-        <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-10 active:scale-95 transition-all"><Plus size={32} className="-rotate-45" /></button>
+        <button onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-10 active:scale-95 transition-all focus:outline-none"><Plus size={32} className="-rotate-45" /></button>
         <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
         <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={22} />} label="Профиль" />
       </nav>
@@ -183,7 +195,7 @@ const App: React.FC = () => {
 };
 
 const NavButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-all ${active ? 'text-indigo-400 scale-110' : 'text-zinc-600'}`}>
+  <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-all focus:outline-none ${active ? 'text-indigo-400 scale-110' : 'text-zinc-600'}`}>
     {icon} <span className="text-[9px] font-bold uppercase tracking-wider">{label}</span>
   </button>
 );
