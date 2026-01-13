@@ -85,7 +85,7 @@ const App: React.FC = () => {
       console.error("Fetch error:", e);
       setSyncStatus('error');
       if (e instanceof Error && e.message.includes('HTML')) {
-        alert('Ошибка доступа к Google Скрипту. Убедитесь, что при развертывании выбрано "Anyone" (Все).');
+        alert('Ошибка доступа к облаку. Убедитесь, что настройки доступа "Anyone".');
       }
     } finally {
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -131,6 +131,12 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
+  const handleDeleteWorkout = (id: string) => {
+    const newList = workouts.filter(w => w.id !== id);
+    setWorkouts(newList);
+    syncToCloud(newList); // Сразу обновляем облако
+  };
+
   const handleMigrateGuestData = () => {
     const guestData = localStorage.getItem('gym-v2-data-guest@local.app');
     if (guestData && user && user.email !== 'guest@local.app') {
@@ -171,14 +177,21 @@ const App: React.FC = () => {
 
       <main className="flex-1 px-4 py-6">
         {activeTab === 'dashboard' && <Dashboard workouts={workouts} onAddClick={() => setActiveTab('add')} />}
-        {activeTab === 'history' && <WorkoutHistory workouts={workouts} onDelete={(id) => setWorkouts(workouts.filter(w => w.id !== id))} onEdit={(w) => { setEditingWorkout(w); setActiveTab('add'); }} />}
+        {activeTab === 'history' && (
+          <WorkoutHistory 
+            workouts={workouts} 
+            onDelete={handleDeleteWorkout} 
+            onEdit={(w) => { setEditingWorkout(w); setActiveTab('add'); }} 
+          />
+        )}
         {activeTab === 'analytics' && <AnalyticsView workouts={workouts} />}
         {activeTab === 'add' && <WorkoutEditor onSave={(w) => { 
           const newList = editingWorkout ? workouts.map(ex => ex.id === editingWorkout.id ? w : ex) : [w, ...workouts];
-          setWorkouts(processWorkouts(newList));
+          const processed = processWorkouts(newList);
+          setWorkouts(processed);
           setEditingWorkout(null);
           setActiveTab('history');
-          syncToCloud(newList);
+          syncToCloud(processed);
         }} onCancel={() => setActiveTab('dashboard')} workouts={workouts} initialWorkout={editingWorkout || undefined} />}
         {activeTab === 'settings' && (
           <SettingsView 
