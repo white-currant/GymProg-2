@@ -11,6 +11,13 @@ import AuthView from './components/AuthView';
 
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRN6M--Fz-gTndleVhN9KKeD_l07ctwQSknsaFik0gaRo7tpxt0KlR4r-WtTqcDP4Wmw/exec';
 
+// Утилита для вибрации
+export const haptic = (pattern: number | number[]) => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(pattern);
+  }
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -36,6 +43,7 @@ const App: React.FC = () => {
     if (!user || user.email === 'guest@local.app') return;
     
     setSyncStatus('loading');
+    haptic(15);
     try {
       await fetch(SYNC_URL, {
         method: 'POST',
@@ -44,6 +52,7 @@ const App: React.FC = () => {
         body: JSON.stringify({ email: user.email, workouts: data })
       });
       setSyncStatus('success');
+      haptic([20, 50, 20]);
     } catch (e) {
       console.error("Sync error:", e);
       setSyncStatus('error');
@@ -57,36 +66,27 @@ const App: React.FC = () => {
     if (!emailToFetch || emailToFetch === 'guest@local.app') return;
     
     setSyncStatus('loading');
+    haptic(15);
     try {
       const fullUrl = new URL(SYNC_URL);
       fullUrl.searchParams.append('email', emailToFetch);
       
       const response = await fetch(fullUrl.toString());
-      
       if (!response.ok) throw new Error('HTTP Error');
 
       const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('Script returned HTML instead of JSON. Check access settings.');
-      }
+      let data = JSON.parse(text);
       
       if (Array.isArray(data)) {
         const merged = processWorkouts([...data]);
         setWorkouts(merged);
         if (storageKey) localStorage.setItem(storageKey, JSON.stringify(merged));
         setSyncStatus('success');
-      } else {
-        setSyncStatus('success');
+        haptic([20, 50, 20]);
       }
     } catch (e) {
       console.error("Fetch error:", e);
       setSyncStatus('error');
-      if (e instanceof Error && e.message.includes('HTML')) {
-        alert('Ошибка доступа к облаку. Убедитесь, что настройки доступа "Anyone".');
-      }
     } finally {
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
@@ -98,13 +98,7 @@ const App: React.FC = () => {
       const localData = stored ? processWorkouts(JSON.parse(stored)) : [];
       setWorkouts(localData);
       setIsLoaded(true);
-      
-      if (user.email !== 'guest@local.app') {
-        fetchFromCloud();
-      }
-    } else {
-      setIsLoaded(false);
-      setWorkouts([]);
+      if (user.email !== 'guest@local.app') fetchFromCloud();
     }
   }, [user, storageKey, fetchFromCloud]);
 
@@ -114,52 +108,24 @@ const App: React.FC = () => {
     }
   }, [workouts, isLoaded, storageKey]);
 
-  const handleLogin = (profile: UserProfile) => {
-    setUser(profile);
-    localStorage.setItem('gym_user_profile', JSON.stringify(profile));
-  };
-
-  const handleLogout = () => {
-    if (!confirm('Выйти из аккаунта?')) return;
-    if ((window as any).google?.accounts?.id) {
-        (window as any).google.accounts.id.disableAutoSelect();
-    }
-    localStorage.removeItem('gym_user_profile');
-    setUser(null);
-    setWorkouts([]);
-    setIsLoaded(false);
-    setActiveTab('dashboard');
+  const handleTabChange = (tab: Tab) => {
+    haptic(10);
+    setActiveTab(tab);
   };
 
   const handleDeleteWorkout = (id: string) => {
+    haptic([50, 30, 10]);
     const newList = workouts.filter(w => w.id !== id);
     setWorkouts(newList);
-    syncToCloud(newList); // Сразу обновляем облако
+    syncToCloud(newList);
   };
 
-  const handleMigrateGuestData = () => {
-    const guestData = localStorage.getItem('gym-v2-data-guest@local.app');
-    if (guestData && user && user.email !== 'guest@local.app') {
-      const parsed = JSON.parse(guestData);
-      const merged = processWorkouts([...workouts, ...parsed]);
-      setWorkouts(merged);
-      syncToCloud(merged);
-      if (confirm('Данные перенесены. Удалить данные из гостевого профиля?')) {
-        localStorage.removeItem('gym-v2-data-guest@local.app');
-      }
-    } else {
-      alert('Данные для переноса не найдены');
-    }
-  };
-
-  if (!user) {
-    return <AuthView onLogin={handleLogin} />;
-  }
+  if (!user) return <AuthView onLogin={setUser} />;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col pb-24 relative">
       <header className="bg-zinc-900/80 backdrop-blur-xl px-6 pt-8 pb-4 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-30">
-        <button onClick={() => setActiveTab('settings')} className={`p-2 rounded-xl transition-colors ${activeTab === 'settings' ? 'text-indigo-400 bg-indigo-500/10' : 'text-zinc-500'}`}>
+        <button onClick={() => handleTabChange('settings')} className={`p-2 rounded-xl transition-colors ${activeTab === 'settings' ? 'text-indigo-400 bg-indigo-500/10' : 'text-zinc-500'}`}>
           <SettingsIcon size={20} />
         </button>
         <div className="text-center">
@@ -171,69 +137,45 @@ const App: React.FC = () => {
           disabled={user.email === 'guest@local.app' || syncStatus === 'loading'} 
           className="p-2 text-zinc-500 disabled:opacity-50"
         >
-          <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin text-indigo-400' : syncStatus === 'error' ? 'text-rose-500' : syncStatus === 'success' ? 'text-emerald-500' : ''} />
+          <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin text-indigo-400' : ''} />
         </button>
       </header>
 
       <main className="flex-1 px-4 py-6">
-        {activeTab === 'dashboard' && <Dashboard workouts={workouts} onAddClick={() => setActiveTab('add')} />}
-        {activeTab === 'history' && (
-          <WorkoutHistory 
-            workouts={workouts} 
-            onDelete={handleDeleteWorkout} 
-            onEdit={(w) => { setEditingWorkout(w); setActiveTab('add'); }} 
-          />
-        )}
+        {activeTab === 'dashboard' && <Dashboard workouts={workouts} onAddClick={() => { haptic(40); setActiveTab('add'); }} />}
+        {activeTab === 'history' && <WorkoutHistory workouts={workouts} onDelete={handleDeleteWorkout} onEdit={(w) => { setEditingWorkout(w); handleTabChange('add'); }} />}
         {activeTab === 'analytics' && <AnalyticsView workouts={workouts} />}
         {activeTab === 'add' && <WorkoutEditor onSave={(w) => { 
           const newList = editingWorkout ? workouts.map(ex => ex.id === editingWorkout.id ? w : ex) : [w, ...workouts];
           const processed = processWorkouts(newList);
           setWorkouts(processed);
           setEditingWorkout(null);
-          setActiveTab('history');
+          handleTabChange('history');
           syncToCloud(processed);
-        }} onCancel={() => setActiveTab('dashboard')} workouts={workouts} initialWorkout={editingWorkout || undefined} />}
-        {activeTab === 'settings' && (
-          <SettingsView 
-            workouts={workouts} 
-            onImport={(d) => setWorkouts(processWorkouts(d))} 
-            onFetch={() => fetchFromCloud()} 
-            onLogout={handleLogout} 
-            onLogin={handleLogin} 
-            onMigrate={handleMigrateGuestData} 
-            user={user} 
-          />
-        )}
+        }} onCancel={() => handleTabChange('dashboard')} workouts={workouts} initialWorkout={editingWorkout || undefined} />}
+        {activeTab === 'settings' && <SettingsView workouts={workouts} onImport={setWorkouts} onFetch={fetchFromCloud} onLogout={() => setUser(null)} onLogin={setUser} onMigrate={() => {}} user={user} />}
       </main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/95 backdrop-blur-2xl border-t border-zinc-800/50 py-3 grid grid-cols-5 items-center z-40 px-2">
-        <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<Home size={22} />} label="Дом" />
-        <NavButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History size={22} />} label="История" />
-        
+        <NavButton active={activeTab === 'dashboard'} onClick={() => handleTabChange('dashboard')} icon={<Home size={22} />} label="Дом" />
+        <NavButton active={activeTab === 'history'} onClick={() => handleTabChange('history')} icon={<History size={22} />} label="История" />
         <div className="flex justify-center">
-          <button 
-            onClick={() => { setEditingWorkout(null); setActiveTab('add'); }} 
-            className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-[0_10px_30px_-10px_rgba(79,70,229,0.5)] -mt-12 active:scale-90 transition-all focus:outline-none"
-          >
+          <button onClick={() => { haptic(40); setEditingWorkout(null); setActiveTab('add'); }} className="w-14 h-14 bg-indigo-600 rounded-2xl rotate-45 flex items-center justify-center text-white shadow-lg -mt-12 active:scale-90 transition-all">
             <Plus size={32} className="-rotate-45" />
           </button>
         </div>
-
-        <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
-        <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={22} />} label="Профиль" />
+        <NavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon={<BarChart2 size={22} />} label="Графики" />
+        <NavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon={<SettingsIcon size={22} />} label="Профиль" />
       </nav>
     </div>
   );
 };
 
 const NavButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all focus:outline-none w-full ${active ? 'text-indigo-400' : 'text-zinc-600'}`}>
-    <div className={`p-1 rounded-xl transition-colors ${active ? 'bg-indigo-500/10' : ''}`}>
-      {icon}
-    </div>
-    <span className="text-[8px] font-black uppercase tracking-[0.15em]">{label}</span>
+  <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all w-full ${active ? 'text-indigo-400' : 'text-zinc-600'}`}>
+    <div className={`p-1 rounded-xl ${active ? 'bg-indigo-500/10' : ''}`}>{icon}</div>
+    <span className="text-[8px] font-black uppercase tracking-widest">{label}</span>
   </button>
 );
 
 export default App;
-
