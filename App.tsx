@@ -1,13 +1,16 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Workout, Tab, UserProfile } from './types';
-import { Home, History, BarChart2, Plus, Settings as SettingsIcon, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Home, History, BarChart2, Plus, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import WorkoutHistory from './components/WorkoutHistory';
 import AnalyticsView from './components/AnalyticsView';
 import WorkoutEditor from './components/WorkoutEditor';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
+
+// Скрытый URL базы данных (Google Apps Script)
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbwVVNjgGy_qyHofaYkpn99jsaN5x453kdQsFaSU7mWgZn4O3Lo0q9H76lpI7o7LSDjieg/exec';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -21,7 +24,6 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const getScriptUrl = () => localStorage.getItem('google-script-url') || '';
   const storageKey = useMemo(() => user ? `gym-v2-data-${user.email}` : null, [user]);
 
   const processWorkouts = (data: Workout[]): Workout[] => {
@@ -32,12 +34,11 @@ const App: React.FC = () => {
   };
 
   const syncToCloud = useCallback(async (data: Workout[]) => {
-    const url = getScriptUrl();
-    if (!user || !url || user.email === 'guest@local.app') return;
+    if (!user || user.email === 'guest@local.app') return;
     
     setSyncStatus('loading');
     try {
-      await fetch(url, {
+      await fetch(SYNC_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
@@ -51,12 +52,11 @@ const App: React.FC = () => {
   }, [user]);
 
   const fetchFromCloud = useCallback(async () => {
-    const url = getScriptUrl();
-    if (!user || !url || syncStatus === 'loading' || user.email === 'guest@local.app') return;
+    if (!user || syncStatus === 'loading' || user.email === 'guest@local.app') return;
     
     setSyncStatus('loading');
     try {
-      const fullUrl = new URL(url);
+      const fullUrl = new URL(SYNC_URL);
       fullUrl.searchParams.append('email', user.email);
       const response = await fetch(fullUrl.toString());
       const data = await response.json();
@@ -96,12 +96,23 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    if (!confirm('Выйти?')) return;
-    setUser(null);
+    if (!confirm('Выйти из аккаунта?')) return;
+    
+    // Очистка Google сессии если она активна
+    if ((window as any).google?.accounts?.id) {
+        (window as any).google.accounts.id.disableAutoSelect();
+    }
+
     localStorage.removeItem('gym_user_profile');
+    setUser(null);
     setWorkouts([]);
+    setIsLoaded(false);
     setActiveTab('dashboard');
   };
+
+  if (!user) {
+    return <AuthView onLogin={handleLogin} />;
+  }
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col pb-24 relative">
@@ -113,7 +124,7 @@ const App: React.FC = () => {
           <h1 className="text-xl font-bold tracking-tight text-white">GymProg</h1>
           <p className="text-[8px] text-zinc-500 uppercase font-black tracking-[0.3em]">Strong Tracker</p>
         </div>
-        <button onClick={() => fetchFromCloud()} disabled={!user || user.email === 'guest@local.app'} className="p-2 text-zinc-500">
+        <button onClick={() => fetchFromCloud()} disabled={user.email === 'guest@local.app'} className="p-2 text-zinc-500">
           <RefreshCw size={18} className={syncStatus === 'loading' ? 'animate-spin text-indigo-400' : ''} />
         </button>
       </header>
@@ -129,7 +140,7 @@ const App: React.FC = () => {
           setActiveTab('history');
           syncToCloud(newList);
         }} onCancel={() => setActiveTab('dashboard')} workouts={workouts} initialWorkout={editingWorkout || undefined} />}
-        {activeTab === 'settings' && <SettingsView workouts={workouts} onImport={(d) => setWorkouts(processWorkouts(d))} onFetch={fetchFromCloud} onLogout={handleLogout} user={user} />}
+        {activeTab === 'settings' && <SettingsView workouts={workouts} onImport={(d) => setWorkouts(processWorkouts(d))} onFetch={fetchFromCloud} onLogout={handleLogout} onLogin={handleLogin} user={user} />}
       </main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border-t border-zinc-800 px-6 py-4 flex justify-between items-center z-40">
