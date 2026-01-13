@@ -18,7 +18,13 @@ export type Workout = {
   type: WorkoutType;
   exercises: Exercise[];
   userWeight?: number;
-  duration?: number; // в минутах
+  duration?: number;
+};
+
+export type UserProfile = {
+  name: string;
+  email: string;
+  picture: string;
 };
 
 export type Tab = 'dashboard' | 'history' | 'analytics' | 'add' | 'settings';
