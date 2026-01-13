@@ -23,14 +23,33 @@ const App: React.FC = () => {
   const pullStartRef = useRef<number | null>(null);
   const PULL_THRESHOLD = 80;
 
+  // Функция для очистки и сортировки данных (удаляет дубли и ставит новые вверх)
+  const processWorkouts = (data: Workout[]): Workout[] => {
+    if (!Array.isArray(data)) return [];
+    
+    // 1. Удаляем дубликаты по ID (оставляем первое вхождение)
+    const uniqueMap = new Map<string, Workout>();
+    data.forEach(w => {
+      if (w && w.id && !uniqueMap.has(w.id)) {
+        uniqueMap.set(w.id, w);
+      }
+    });
+
+    // 2. Сортируем по дате (от новых к старым)
+    return Array.from(uniqueMap.values()).sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  };
+
   const syncToCloud = useCallback(async (data: Workout[]) => {
+    const cleanData = processWorkouts(data);
     setSyncStatus('loading');
     try {
       await fetch(CLOUD_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(cleanData)
       });
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -46,8 +65,9 @@ const App: React.FC = () => {
       const response = await fetch(CLOUD_SCRIPT_URL);
       const data = await response.json();
       if (Array.isArray(data)) {
-        setWorkouts(data);
-        localStorage.setItem('gym-workouts', JSON.stringify(data));
+        const cleanData = processWorkouts(data);
+        setWorkouts(cleanData);
+        localStorage.setItem('gym-workouts', JSON.stringify(cleanData));
         setSyncStatus('success');
         setTimeout(() => setSyncStatus('idle'), 3000);
       }
@@ -58,16 +78,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const stored = localStorage.getItem('gym-workouts');
+    let initialWorkouts = INITIAL_DATA;
     if (stored !== null) {
       try {
         const parsed = JSON.parse(stored);
-        setWorkouts(Array.isArray(parsed) ? parsed : INITIAL_DATA);
+        if (Array.isArray(parsed)) {
+          initialWorkouts = parsed;
+        }
       } catch (e) {
-        setWorkouts(INITIAL_DATA);
+        console.error("Failed to parse stored workouts", e);
       }
-    } else {
-      setWorkouts(INITIAL_DATA);
     }
+    
+    const cleanInitial = processWorkouts(initialWorkouts);
+    setWorkouts(cleanInitial);
     setIsLoaded(true);
     fetchFromCloud();
   }, []);
@@ -90,13 +114,8 @@ const App: React.FC = () => {
       const currentY = e.touches[0].clientY;
       const diff = currentY - pullStartRef.current;
       if (diff > 0) {
-        // Эффект сопротивления
         const resistedDiff = Math.min(diff * 0.5, 120);
         setPullDistance(resistedDiff);
-        // Отменяем стандартный скролл если тянем вниз в самом верху
-        if (diff > 10 && e.cancelable) {
-            // e.preventDefault(); // Может вызвать проблемы с прокруткой, используем осторожно
-        }
       }
     }
   };
@@ -110,22 +129,28 @@ const App: React.FC = () => {
   };
 
   const addWorkout = (workout: Workout) => {
-    let newWorkouts: Workout[];
-    if (editingWorkout) {
-      newWorkouts = workouts.map(w => w.id === editingWorkout.id ? workout : w);
-      setEditingWorkout(null);
-    } else {
-      newWorkouts = [workout, ...workouts];
-    }
-    setWorkouts(newWorkouts);
-    syncToCloud(newWorkouts); 
+    setWorkouts(prev => {
+      let newWorkouts: Workout[];
+      if (editingWorkout) {
+        newWorkouts = prev.map(w => w.id === editingWorkout.id ? workout : w);
+        setEditingWorkout(null);
+      } else {
+        newWorkouts = [workout, ...prev];
+      }
+      const processed = processWorkouts(newWorkouts);
+      syncToCloud(processed); 
+      return processed;
+    });
     setActiveTab('history');
   };
 
   const deleteWorkout = (id: string) => {
-    const newWorkouts = workouts.filter(w => w.id !== id);
-    setWorkouts(newWorkouts);
-    syncToCloud(newWorkouts);
+    setWorkouts(prev => {
+      const newWorkouts = prev.filter(w => w.id !== id);
+      const processed = processWorkouts(newWorkouts);
+      syncToCloud(processed);
+      return processed;
+    });
     setActiveTab('history');
   };
 
@@ -146,7 +171,7 @@ const App: React.FC = () => {
       case 'history': return <WorkoutHistory workouts={workouts} onDelete={deleteWorkout} onEdit={startEditWorkout} />;
       case 'analytics': return <AnalyticsView workouts={workouts} />;
       case 'add': return <WorkoutEditor onSave={addWorkout} onCancel={handleCancelAdd} workouts={workouts} initialWorkout={editingWorkout || undefined} />;
-      case 'settings': return <SettingsView workouts={workouts} onImport={(data) => setWorkouts(data)} />;
+      case 'settings': return <SettingsView workouts={workouts} onImport={(data) => setWorkouts(processWorkouts(data))} />;
       default: return <Dashboard workouts={workouts} onAddClick={() => { setEditingWorkout(null); setActiveTab('add'); }} />;
     }
   };
