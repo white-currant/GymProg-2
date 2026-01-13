@@ -14,7 +14,6 @@ const SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRN6M--Fz-gTndleVhN9K
 // Утилита для вибрации (Navigator API)
 export const haptic = (pattern: number | number[]) => {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    // В большинстве мобильных браузеров это работает только на Android
     navigator.vibrate(pattern);
   }
 };
@@ -53,7 +52,7 @@ const App: React.FC = () => {
         body: JSON.stringify({ email: user.email, workouts: data })
       });
       setSyncStatus('success');
-      haptic([30, 50, 30]); // Двойная вибрация при успехе
+      haptic([30, 50, 30]);
     } catch (e) {
       console.error("Sync error:", e);
       setSyncStatus('error');
@@ -110,12 +109,14 @@ const App: React.FC = () => {
   }, [workouts, isLoaded, storageKey]);
 
   const handleTabChange = (tab: Tab) => {
-    haptic(5); // Короткая отдача при смене таба
+    haptic(5);
     setActiveTab(tab);
+    // Принудительный скролл вверх при каждой смене таба
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleDeleteWorkout = (id: string) => {
-    haptic([100, 50, 100]); // Сильная двойная отдача при удалении
+    haptic([100, 50, 100]);
     const newList = workouts.filter(w => w.id !== id);
     setWorkouts(newList);
     syncToCloud(newList);
