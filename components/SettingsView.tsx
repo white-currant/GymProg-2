@@ -82,7 +82,7 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
       if (type === 'down') {
         await onFetch();
       } else {
-        const SYNC_URL = 'https://script.google.com/macros/s/AKfycbwVVNjgGy_qyHofaYkpn99jsaN5x453kdQsFaSU7mWgZn4O3Lo0q9H76lpI7o7LSDjieg/exec';
+        const SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRN6M--Fz-gTndleVhN9KKeD_l07ctwQSknsaFik0gaRo7tpxt0KlR4r-WtTqcDP4Wmw/exec';
         await fetch(SYNC_URL, {
           method: 'POST',
           mode: 'no-cors',
