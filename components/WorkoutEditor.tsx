@@ -4,6 +4,18 @@ import { Workout, Exercise, WorkoutType, WorkoutSet } from '../types';
 import { Save, X, Plus, Trash, Scale, Play, CheckCircle2, Target, TrendingUp } from 'lucide-react';
 import { haptic } from '../App';
 
+// Локальные типы для редактора, где значения — строки для удобства ввода
+interface EditableSet {
+  reps: string;
+  weight: string;
+}
+
+interface EditableExercise {
+  id: string;
+  name: string;
+  sets: EditableSet[];
+}
+
 interface EditorProps {
   onSave: (workout: Workout) => void;
   onCancel: () => void;
@@ -17,7 +29,6 @@ const STATIC_TEMPLATES: Record<WorkoutType, string[]> = {
 };
 
 const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, initialWorkout }) => {
-  // Функция для получения локальной даты устройства в формате ГГГГ-ММ-ДД без UTC смещения
   const getLocalDate = () => {
     const now = new Date();
     const y = now.getFullYear();
@@ -29,10 +40,20 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   const [date, setDate] = useState(() => initialWorkout?.date || getLocalDate());
   const [type, setType] = useState<WorkoutType>(initialWorkout?.type || 'A');
   const [userWeight, setUserWeight] = useState<string>(initialWorkout?.userWeight?.toString() || '');
-  const [exercises, setExercises] = useState<Exercise[]>(initialWorkout?.exercises || []);
+  
+  // Храним упражнения со строковыми значениями для корректного ввода десятичных дробей
+  const [exercises, setExercises] = useState<EditableExercise[]>(() => {
+    if (initialWorkout) {
+      return initialWorkout.exercises.map(ex => ({
+        ...ex,
+        sets: ex.sets.map(s => ({ reps: s.reps.toString(), weight: s.weight.toString() }))
+      }));
+    }
+    return [];
+  });
+
   const [newExerciseName, setNewExerciseName] = useState('');
   const [isStarted, setIsStarted] = useState(!!initialWorkout);
-  
   const startTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
@@ -41,22 +62,19 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
     }
   }, [initialWorkout]);
 
-  // Умный расчет: Реальный рекорд и рекомендация
   const getSmartTarget = (name: string) => {
     const cleanName = name.trim().toLowerCase();
     const history = workouts.filter(w => w.exercises.some(e => e.name.trim().toLowerCase() === cleanName));
-    
     if (history.length === 0) return null;
 
     let absoluteRecord = 0;
-    // Находим реальный максимальный вес, который когда-либо поднимался
     workouts.forEach(w => {
-        const ex = w.exercises.find(e => e.name.trim().toLowerCase() === cleanName);
-        if (ex) {
-            ex.sets.forEach(s => {
-                if (s.weight > absoluteRecord) absoluteRecord = s.weight;
-            });
-        }
+      const ex = w.exercises.find(e => e.name.trim().toLowerCase() === cleanName);
+      if (ex) {
+        ex.sets.forEach(s => {
+          if (s.weight > absoluteRecord) absoluteRecord = s.weight;
+        });
+      }
     });
 
     const lastEx = history[0].exercises.find(e => e.name.trim().toLowerCase() === cleanName)!;
@@ -76,10 +94,10 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
 
   const loadTemplate = (selectedType: WorkoutType) => {
     const templateNames = STATIC_TEMPLATES[selectedType];
-    const newExercises: Exercise[] = templateNames.map(name => ({
+    const newExercises: EditableExercise[] = templateNames.map(name => ({
       id: Math.random().toString(36).substr(2, 9),
       name: name,
-      sets: [{ reps: 0, weight: 0 }]
+      sets: [{ reps: '', weight: '' }]
     }));
     setExercises(newExercises);
   };
@@ -100,16 +118,29 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   };
 
   const handleSave = () => {
-    if (!isStarted) return;
-    if (exercises.length === 0) return;
+    if (!isStarted || exercises.length === 0) return;
     haptic([20, 50, 20]);
+    
     const durationMs = Date.now() - startTimeRef.current;
+    
+    // Преобразование строковых значений обратно в числа при сохранении
+    const finalExercises: Exercise[] = exercises.map(ex => ({
+      id: ex.id,
+      name: ex.name,
+      sets: ex.sets
+        .filter(s => s.reps !== '' || s.weight !== '') // Убираем совсем пустые
+        .map(s => ({
+          reps: parseInt(s.reps) || 0,
+          weight: parseFloat(s.weight.replace(',', '.')) || 0
+        }))
+    }));
+
     onSave({
       id: initialWorkout?.id || Date.now().toString(),
       date,
       type,
       userWeight: userWeight ? parseFloat(userWeight.replace(',', '.')) : undefined,
-      exercises,
+      exercises: finalExercises,
       duration: initialWorkout?.duration || Math.max(1, Math.round(durationMs / 60000))
     });
   };
@@ -190,14 +221,14 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
                       {sIdx + 1}
                     </div>
                     <input 
-                      type="number" 
+                      type="text" 
                       inputMode="numeric"
                       className="min-w-0 flex-1 bg-zinc-800 border border-zinc-700 rounded-lg py-2 text-center text-[12px] font-bold text-zinc-100 outline-none focus:border-indigo-500/50" 
-                      value={set.reps || ''} 
+                      value={set.reps} 
                       placeholder="Повт" 
                       onChange={(e) => {
                         const newSets = [...exercise.sets];
-                        newSets[sIdx] = {...newSets[sIdx], reps: parseInt(e.target.value) || 0};
+                        newSets[sIdx] = {...newSets[sIdx], reps: e.target.value};
                         setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: newSets} : ex));
                       }} 
                     />
@@ -205,11 +236,12 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
                       type="text" 
                       inputMode="decimal" 
                       className="min-w-0 flex-1 bg-zinc-800 border border-zinc-700 rounded-lg py-2 text-center text-[12px] font-bold text-zinc-100 outline-none focus:border-indigo-500/50" 
-                      value={set.weight || ''} 
+                      value={set.weight} 
                       placeholder="КГ" 
                       onChange={(e) => {
                         const newSets = [...exercise.sets];
-                        newSets[sIdx] = {...newSets[sIdx], weight: parseFloat(e.target.value.replace(',','.')) || 0};
+                        // Разрешаем ввод запятой или точки
+                        newSets[sIdx] = {...newSets[sIdx], weight: e.target.value.replace(',', '.')};
                         setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: newSets} : ex));
                       }} 
                     />
@@ -218,7 +250,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
                     </button>
                   </div>
                 ))}
-                <button onClick={() => { haptic(10); setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: [...ex.sets, {reps: 0, weight: 0}]} : ex)); }} className="w-full py-2 bg-zinc-800/30 border border-dashed border-zinc-800/50 rounded-lg text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em] active:bg-zinc-800 transition-all">
+                <button onClick={() => { haptic(10); setExercises(exercises.map(ex => ex.id === exercise.id ? {...ex, sets: [...ex.sets, {reps: '', weight: ''}]} : ex)); }} className="w-full py-2 bg-zinc-800/30 border border-dashed border-zinc-800/50 rounded-lg text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em] active:bg-zinc-800 transition-all">
                   + Подход
                 </button>
               </div>
@@ -235,7 +267,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
             onChange={(e) => setNewExerciseName(e.target.value)} 
           />
           <button 
-            onClick={() => { if(newExerciseName) { setExercises(prev => [...prev, {id: Math.random().toString(36).substr(2, 9), name: newExerciseName, sets: [{reps: 0, weight: 0}]}]); setNewExerciseName(''); haptic(15); } }} 
+            onClick={() => { if(newExerciseName) { setExercises(prev => [...prev, {id: Math.random().toString(36).substr(2, 9), name: newExerciseName, sets: [{reps: '', weight: ''}]}]); setNewExerciseName(''); haptic(15); } }} 
             className="w-full py-3 bg-zinc-800 text-zinc-500 rounded-xl text-[9px] font-black uppercase tracking-widest border border-zinc-700 active:scale-95 transition-all"
           >
             + В список
@@ -252,4 +284,3 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
 }
 
 export default WorkoutEditor;
-
