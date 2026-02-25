@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Workout, UserProfile } from '../types';
+import { fetchWithTimeout } from '../App';
 import { 
   LogIn as LoginIcon, 
   LogOut as LogoutIcon, 
@@ -27,7 +28,7 @@ interface SettingsProps {
   user: UserProfile | null;
 }
 
-const GOOGLE_CLIENT_ID = "493846459902-fi9ma2l18sciq5lr3t8bh8fm81e63bao.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRN6M--Fz-gTndleVhN9KKeD_l07ctwQSknsaFik0gaRo7tpxt0KlR4r-WtTqcDP4Wmw/exec';
 
 const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, onLogout, onLogin, onMigrate, user }) => {
@@ -98,7 +99,7 @@ const SettingsView: React.FC<SettingsProps> = ({ workouts, onImport, onFetch, on
       if (type === 'down') {
         await onFetch();
       } else {
-        await fetch(SYNC_URL, {
+        await fetchWithTimeout(SYNC_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },

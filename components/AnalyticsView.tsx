@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Workout } from '../types';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TrendingUp, Activity } from 'lucide-react';
@@ -21,8 +21,11 @@ const AnalyticsView: React.FC<AnalyticsProps> = ({ workouts }) => {
     return Array.from(names).sort();
   }, [workouts]);
 
-  const chartData = useMemo(() => {
+  useEffect(() => {
     if (!selectedExercise && exerciseNames.length > 0) setSelectedExercise(exerciseNames[0]);
+  }, [exerciseNames, selectedExercise]);
+
+  const chartData = useMemo(() => {
     if (!selectedExercise) return [];
     
     // Нормализация текущей даты к полуночи

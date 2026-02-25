@@ -7,8 +7,7 @@ interface AuthViewProps {
   onLogin: (profile: UserProfile) => void;
 }
 
-// Персональный Client ID пользователя интегрирован в код
-const GOOGLE_CLIENT_ID = "493846459902-fi9ma2l18sciq5lr3t8bh8fm81e63bao.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 
 interface GoogleTokenPayload {
   name: string;
