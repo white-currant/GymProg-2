@@ -10,7 +10,7 @@ export interface Exercise {
   sets: WorkoutSet[];
 }
 
-export type WorkoutType = 'A' | 'B';
+export type WorkoutType = 'A' | 'B' | 'C';
 
 export interface Workout {
   id: string;

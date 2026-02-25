@@ -24,8 +24,9 @@ interface EditorProps {
 }
 
 const STATIC_TEMPLATES: Record<WorkoutType, string[]> = {
-  A: ['Жим в блоке в наклоне', 'Пресс в блоке', 'Жим в блоке горизонтально', 'Сгибание ног в блоке', 'Жим ногами в блоке', 'Разгибание ног в блоке', 'Икры в блоке', 'Трицепс в блоке (x/2)'],
-  B: ['Пресс в блоке', 'Тяга в блоке вертикально (узким хватом)', 'Upper back', 'Бицепс в блоке сидя', 'Плечи в блоке сидя (разведение)', 'Плечи в блоке стоя (x/2)', 'Бицепс гантели', 'Плечи гантели (разведение)']
+  A: ['Жим в блоке в наклоне', 'Жим в блоке горизонтально', 'Трицепс в блоке (x/2)', 'Пресс в блоке'],
+  B: ['Тяга в блоке вертикально (узким хватом)', 'Upper back', 'Бицепс в блоке сидя', 'Плечи в блоке сидя (разведение)', 'Плечи в блоке стоя (x/2)', 'Бицепс гантели', 'Плечи гантели (разведение)', 'Пресс в блоке'],
+  C: ['Жим ногами в блоке', 'Сгибание ног в блоке', 'Разгибание ног в блоке', 'Икры в блоке', 'Пресс в блоке']
 };
 
 const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, initialWorkout }) => {
@@ -105,7 +106,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
   useEffect(() => {
     if (!initialWorkout && exercises.length === 0) {
       const last = workouts[0];
-      const nextType = last ? (last.type === 'A' ? 'B' : 'A') : 'A';
+      const nextType = last ? (last.type === 'A' ? 'B' : last.type === 'B' ? 'C' : 'A') : 'A';
       setType(nextType);
       loadTemplate(nextType);
     }
@@ -158,6 +159,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
           <div className="flex bg-zinc-800 rounded-xl p-1 border border-zinc-700 h-[38px] flex-1">
             <button onClick={() => { haptic(10); setType('A'); loadTemplate('A'); }} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'A' ? 'bg-indigo-600 text-white' : 'text-zinc-500'}`}>A</button>
             <button onClick={() => { haptic(10); setType('B'); loadTemplate('B'); }} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'B' ? 'bg-emerald-600 text-white' : 'text-zinc-500'}`}>B</button>
+            <button onClick={() => { haptic(10); setType('C'); loadTemplate('C'); }} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${type === 'C' ? 'bg-amber-600 text-white' : 'text-zinc-500'}`}>C</button>
           </div>
         </div>
 
