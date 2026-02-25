@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#0a0a0a"/>
+  <rect x="16" y="16" width="160" height="160" rx="32" fill="#18181b" stroke="#27272a" stroke-width="2"/>
+  <text x="96" y="115" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="72" fill="#6366f1">G</text>
+  <text x="96" y="148" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="18" fill="#3f3f46" letter-spacing="6">PROG</text>
+</svg>

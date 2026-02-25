@@ -137,7 +137,7 @@ const WorkoutEditor: React.FC<EditorProps> = ({ onSave, onCancel, workouts, init
     }));
 
     onSave({
-      id: initialWorkout?.id || Date.now().toString(),
+      id: initialWorkout?.id || crypto.randomUUID(),
       date,
       type,
       userWeight: userWeight ? parseFloat(userWeight.replace(',', '.')) : undefined,

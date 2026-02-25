@@ -18,6 +18,14 @@ export const haptic = (pattern: number | number[]) => {
   }
 };
 
+// Fetch с таймаутом (по умолчанию 15 секунд)
+export const fetchWithTimeout = (url: string | URL, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url.toString(), { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timeout));
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -41,11 +49,11 @@ const App: React.FC = () => {
 
   const syncToCloud = useCallback(async (data: Workout[]) => {
     if (!user || user.email === 'guest@local.app') return;
-    
+
     setSyncStatus('loading');
     haptic(10);
     try {
-      await fetch(SYNC_URL, {
+      await fetchWithTimeout(SYNC_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
@@ -71,7 +79,7 @@ const App: React.FC = () => {
       const fullUrl = new URL(SYNC_URL);
       fullUrl.searchParams.append('email', emailToFetch);
       
-      const response = await fetch(fullUrl.toString());
+      const response = await fetchWithTimeout(fullUrl);
       if (!response.ok) throw new Error('HTTP Error');
 
       const text = await response.text();
@@ -115,6 +123,16 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
+  const handleMigrate = useCallback(() => {
+    const guestData = localStorage.getItem('gym-v2-data-guest@local.app');
+    if (!guestData || !storageKey) return;
+    const guestWorkouts: Workout[] = JSON.parse(guestData);
+    const merged = processWorkouts([...workouts, ...guestWorkouts]);
+    setWorkouts(merged);
+    localStorage.removeItem('gym-v2-data-guest@local.app');
+    syncToCloud(merged);
+  }, [workouts, storageKey, syncToCloud]);
+
   const handleDeleteWorkout = (id: string) => {
     haptic([100, 50, 100]);
     const newList = workouts.filter(w => w.id !== id);
@@ -155,7 +173,7 @@ const App: React.FC = () => {
           handleTabChange('history');
           syncToCloud(processed);
         }} onCancel={() => handleTabChange('dashboard')} workouts={workouts} initialWorkout={editingWorkout || undefined} />}
-        {activeTab === 'settings' && <SettingsView workouts={workouts} onImport={setWorkouts} onFetch={fetchFromCloud} onLogout={() => setUser(null)} onLogin={setUser} onMigrate={() => {}} user={user} />}
+        {activeTab === 'settings' && <SettingsView workouts={workouts} onImport={setWorkouts} onFetch={fetchFromCloud} onLogout={() => setUser(null)} onLogin={setUser} onMigrate={handleMigrate} user={user} />}
       </main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-zinc-900/95 backdrop-blur-2xl border-t border-zinc-800/50 py-3 grid grid-cols-5 items-center z-40 px-2">
