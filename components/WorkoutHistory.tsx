@@ -58,7 +58,7 @@ const WorkoutHistory: React.FC<HistoryProps> = ({ workouts, onDelete, onEdit }) 
           <div key={workout.id} className="bg-zinc-900 rounded-[28px] border border-zinc-800 shadow-2xl transition-all overflow-hidden relative">
             <div className="p-4 pb-3 border-b border-zinc-800 flex justify-between items-center bg-zinc-800/30">
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm text-white shadow-sm ${workout.type === 'A' ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm text-white shadow-sm ${workout.type === 'A' ? 'bg-indigo-600' : workout.type === 'B' ? 'bg-emerald-600' : 'bg-amber-600'}`}>
                   {workout.type}
                 </div>
                 <div>
